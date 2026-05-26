@@ -2,58 +2,34 @@
 //  SWDateExtension.swift
 //  ShipSwift
 //
-//  Date extension providing English/Chinese date formatting, relative time descriptions,
-//  date comparison, date arithmetic, and daily reset helper methods.
-//  Language follows the "appLanguage" key in UserDefaults ("en" / "zh-Hans").
+//  Date extension providing locale-aware formatting, relative time descriptions,
+//  date comparison, and date arithmetic helpers.
+//
+//  Refactored 2026-05-26 to use `Locale.current` + `setLocalizedDateFormatFromTemplate`
+//  + `RelativeDateTimeFormatter` so JA / KO / EN users no longer see hard-wired
+//  Traditional Chinese strings. The old `appLanguage` UserDefaults toggle is gone —
+//  the device locale is now the single source of truth.
 //
 //  Usage:
-//    // Formatted output (automatically adapts to English/Chinese):
-//    Date().formatMonth()       // "Jan" or "1月"
-//    Date().formatDay()         // "15"
-//    Date().formatMonthDay()    // "Jan 15" or "1月15日"
-//    Date().formatFullDate()    // "Jan 15, 2025" or "2025年1月15日"
+//    Date().formatMonth()       // "Jan" / "1月" / "1月" / "1월"
+//    Date().formatMonthDay()    // "Jan 15" / "1月15日" / "1月15日" / "1월 15일"
+//    Date().formatFullDate()    // "Jan 15, 2025" / "2025年1月15日" / "2025年1月15日" / "2025년 1월 15일"
 //    Date().formatTime()        // "14:30"
-//    Date().formatDateTime()    // "Jan 15, 14:30" or "1月15日 14:30"
+//    Date().formatDateTime()    // "Jan 15, 14:30" / "1月15日 14:30" / ...
 //
-//    // Relative time:
-//    someDate.timeAgo()         // "Just now" / "3 min ago" / "Yesterday" / "Jan 15"
+//    someDate.timeAgo()         // "Just now" / "3 分鐘前" / "3분 전" / etc. (locale-driven)
 //
-//    // Date comparison:
-//    date.isToday               // Bool
-//    date.isYesterday           // Bool
-//    date.isSameDay(as: other)  // Bool
-//    date.startOfDay            // Start of the day 00:00:00
-//    date.endOfDay              // End of the day 23:59:59
+//    date.isToday / date.isYesterday / date.isSameDay(as:)
+//    date.startOfDay / date.endOfDay
+//    date.adding(days:) / adding(months:) / adding(years:)
+//    date.days(from:)
 //
-//    // Date arithmetic:
-//    date.adding(days: 7)       // 7 days later
-//    date.adding(months: -1)    // 1 month ago
-//    date.days(from: earlier)   // Number of days between two dates
-//
-//    // Daily reset detection (suitable for check-in / quota scenarios):
-//    if Date.shouldResetDaily(dateKey: "lastCheckIn") {
-//        resetCounter()
-//        Date.updateDailyResetDate(dateKey: "lastCheckIn")
-//    }
+//    Date.shouldResetDaily(dateKey:) / Date.updateDailyResetDate(dateKey:)
 //
 //  Created by Wei Zhong on 3/1/26.
 //
 
 import Foundation
-
-// MARK: - App Language Helper
-
-private var appLanguage: String {
-    UserDefaults.standard.string(forKey: "appLanguage") ?? "en"
-}
-
-private var isEnglish: Bool {
-    appLanguage == "en"
-}
-
-private var currentLocale: Locale {
-    Locale(identifier: appLanguage)
-}
 
 // MARK: - Date Formatting
 
@@ -61,98 +37,78 @@ extension Date {
 
     // MARK: - Basic Formatting
 
-    /// Format as month
-    /// - Returns: `Jan` / `1月`
+    /// Format as month, locale-aware. EN → "Jan", JA → "1月", zh-Hant → "1月", KO → "1월".
     func formatMonth() -> String {
         let formatter = DateFormatter()
-        formatter.locale = currentLocale
-        formatter.dateFormat = isEnglish ? "MMM" : "M月"
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("MMM")
         return formatter.string(from: self)
     }
 
-    /// Format as day
-    /// - Returns: `15`
+    /// Format as day of month — locale-neutral integer.
     func formatDay() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "d"
         return formatter.string(from: self)
     }
 
-    /// Format as month and day
-    /// - Returns: `Jan 15` / `1月15日`
+    /// Format as month + day, locale-aware. EN → "Jan 15", zh-Hant/JA → "1月15日", KO → "1월 15일".
     func formatMonthDay() -> String {
         let formatter = DateFormatter()
-        formatter.locale = currentLocale
-        formatter.dateFormat = isEnglish ? "MMM d" : "M月d日"
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("MMMd")
         return formatter.string(from: self)
     }
 
-    /// Format as full date
-    /// - Returns: `Jan 15, 2025` / `2025年1月15日`
+    /// Format as full date, locale-aware. EN → "Jan 15, 2025", zh-Hant/JA → "2025年1月15日",
+    /// KO → "2025년 1월 15일".
     func formatFullDate() -> String {
         let formatter = DateFormatter()
-        formatter.locale = currentLocale
-        formatter.dateFormat = isEnglish ? "MMM d, yyyy" : "yyyy年M月d日"
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("yMMMd")
         return formatter.string(from: self)
     }
 
-    /// Format as time
-    /// - Returns: `14:30`
+    /// Format as 24-hour time. Locale-neutral.
     func formatTime() -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: self)
     }
 
-    /// Format as date and time
-    /// - Returns: `Jan 15, 14:30` / `1月15日 14:30`
+    /// Format as date + time, locale-aware.
     func formatDateTime() -> String {
         "\(formatMonthDay()) \(formatTime())"
     }
 
     // MARK: - Relative Time
 
-    /// Relative time description
-    /// - Returns: `Just now` / `3 min ago` / `2 hours ago` / `Yesterday` / `Jan 15`
+    /// Locale-aware relative time. Uses Apple's `RelativeDateTimeFormatter` so
+    /// the output is fully translated by the system — EN gets "3 min ago",
+    /// zh-Hant gets "3 分鐘前", JA gets "3分前", KO gets "3분 전".
+    ///
+    /// Falls back to a full date (locale-aware) for anything more than 7 days
+    /// in the past so users don't see "7 weeks ago" when they want the actual
+    /// calendar date.
     func timeAgo() -> String {
         let now = Date()
         let interval = now.timeIntervalSince(self)
 
-        // Future date
+        // Future date — show calendar date rather than "in 3 hours" since
+        // the call sites (transaction lists, logs) only ever look back.
         if interval < 0 {
             return formatMonthDay()
         }
 
-        // Within 1 minute
-        if interval < 60 {
-            return isEnglish ? "Just now" : "剛剛"
+        // > 7 days → show the actual date instead of a vague "N weeks ago".
+        if interval >= 604_800 {
+            return formatMonthDay()
         }
 
-        // Within 1 hour
-        if interval < 3600 {
-            let minutes = Int(interval / 60)
-            return isEnglish ? "\(minutes) min ago" : "\(minutes)分鐘前"
-        }
-
-        // Within 24 hours
-        if interval < 86400 {
-            let hours = Int(interval / 3600)
-            return isEnglish ? "\(hours) hour\(hours > 1 ? "s" : "") ago" : "\(hours)小時前"
-        }
-
-        // Yesterday
-        if Calendar.current.isDateInYesterday(self) {
-            return isEnglish ? "Yesterday" : "昨天"
-        }
-
-        // Within 7 days
-        if interval < 604800 {
-            let days = Int(interval / 86400)
-            return isEnglish ? "\(days) day\(days > 1 ? "s" : "") ago" : "\(days)天前"
-        }
-
-        // More than 7 days, show date
-        return formatMonthDay()
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = .current
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: self, relativeTo: now)
     }
 
     // MARK: - Date Comparison
