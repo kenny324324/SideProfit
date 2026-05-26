@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// DevCal / SideProfit Firestore security rules.
+//
+// Schema is flat — every entity collection sits at the root and every doc
+// carries an `ownerUid` field that has to match the caller's auth uid. The
+// per-user `subscriptionStatus` collection is the one exception: its doc id
+// *is* the uid, so the rule pivots on that instead.
+//
+// Deploy: `firebase deploy --only firestore:rules` from the repo root.
+// Test:   `firebase emulators:start --only firestore` + the rules unit-test
+//         runner under Functions/ once the cascade-delete function lands
+//         in Step 6.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsIncoming() {
+      return signedIn() && request.resource.data.ownerUid == request.auth.uid;
+    }
+
+    function ownsExisting() {
+      return signedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // -------------------------------------------------------------
+    // Entity collections — flat, every doc has `ownerUid`.
+    // -------------------------------------------------------------
+
+    match /projects/{projectId} {
+      allow read:   if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
+    }
+
+    match /transactions/{transactionId} {
+      allow read:   if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
+    }
+
+    match /timeLogs/{timeLogId} {
+      allow read:   if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
+    }
+
+    match /categoryItems/{categoryItemId} {
+      allow read:   if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
+    }
+
+    match /milestones/{milestoneId} {
+      allow read:   if ownsExisting();
+      allow create: if ownsIncoming();
+      allow update: if ownsExisting() && ownsIncoming();
+      allow delete: if ownsExisting();
+    }
+
+    // -------------------------------------------------------------
+    // Per-user singleton — doc id is the uid, so the rule pivots on that.
+    // -------------------------------------------------------------
+
+    match /subscriptionStatus/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // -------------------------------------------------------------
+    // Account-deletion handshake. Client writes a deletion request, the
+    // Cloud Function cascade-deletes the user's docs server-side.
+    // -------------------------------------------------------------
+
+    match /users/{uid}/deletionRequests/{docId} {
+      allow create, read: if signedIn() && request.auth.uid == uid;
+      // Cloud Functions run with admin creds and bypass these rules; users
+      // can't delete the request themselves or mutate someone else's.
+      allow update, delete: if false;
+    }
+  }
+}
