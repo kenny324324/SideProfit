@@ -100,10 +100,10 @@ final class ExchangeRateService {
                 throw URLError(.badServerResponse)
             }
             let decoded = try JSONDecoder().decode(FrankfurterResponse.self, from: data)
-            var fresh = decoded.rates
-            // USD is the base — Frankfurter omits it; we always include it at 1.0.
-            fresh["USD"] = 1.0
-            self.rates = fresh
+            // Frankfurter is ECB-sourced and does not return every code we expose
+            // (e.g. TWD). Merging on top of the baseline keeps stored amounts in
+            // those currencies convertible instead of collapsing them to 0.
+            self.rates = Self.merge(remote: decoded.rates, baseline: Self.baselineRates)
             self.lastUpdated = Date()
             self.lastError = nil
             saveToCache()
@@ -124,6 +124,19 @@ final class ExchangeRateService {
     var isStale: Bool {
         guard let last = lastUpdated else { return true }
         return Date().timeIntervalSince(last) > Self.staleInterval
+    }
+
+    // MARK: - Merge
+
+    /// Layer the Frankfurter response on top of the bundled baseline so codes
+    /// the ECB doesn't publish (e.g. TWD) survive a network refresh. Exposed
+    /// `internal` so the test target can verify the merge directly without
+    /// stubbing URLSession.
+    static func merge(remote: [String: Double], baseline: [String: Double]) -> [String: Double] {
+        var merged = baseline
+        for (code, rate) in remote { merged[code] = rate }
+        merged["USD"] = 1.0
+        return merged
     }
 
     // MARK: - Persistence
