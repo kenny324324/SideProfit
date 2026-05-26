@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import FirebaseCore
 
 @main
 struct DevCalApp: App {
@@ -16,7 +17,9 @@ struct DevCalApp: App {
     @AppStorage(Typography.DefaultsKey.cjkMode) private var cjkMode: String = Typography.FontMode.native.rawValue
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
     @Environment(\.scenePhase) private var scenePhase
-    @State private var auth = AuthService()
+    // Built in `init()` *after* FirebaseApp.configure() so the auth state
+    // listener has a configured Firebase app to attach to.
+    @State private var auth: AuthService
     @State private var entitlements = Entitlements()
     @State private var fx = ExchangeRateService.shared
     @State private var appReviewPrompter = AppReviewPrompter()
@@ -37,6 +40,12 @@ struct DevCalApp: App {
     private let container: ModelContainer
 
     init() {
+        // Firebase first so AuthService's state listener (constructed below
+        // via the @State default) has a configured app to talk to. Phase 1
+        // wires only FirebaseAuth; Firestore / Crashlytics / etc. are added
+        // in later phases.
+        FirebaseApp.configure()
+        _auth = State(initialValue: AuthService())
         Typography.applyUIKitAppearance()
         // First-launch default: track the device locale so non-Taiwan users
         // open the app in their own currency. Subsequent launches respect

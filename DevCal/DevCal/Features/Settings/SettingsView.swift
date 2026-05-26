@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import UIKit
 import StoreKit
 import PhosphorSymbols
@@ -16,6 +17,11 @@ struct SettingsView: View {
     @Environment(AuthService.self) private var auth
     @Environment(Entitlements.self) private var entitlements
     @Environment(ExchangeRateService.self) private var fx
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.projectRepository) private var projectRepository
+    @Environment(\.transactionRepository) private var transactionRepository
+    @Environment(\.timeLogRepository) private var timeLogRepository
+    @Environment(\.categoryItemRepository) private var categoryItemRepository
     @AppStorage("needsOnboarding") private var needsOnboarding = false
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
     @AppStorage("preferredAppearance") private var preferredAppearance: String = "system"
@@ -26,6 +32,9 @@ struct SettingsView: View {
     @State private var showSignOutConfirm = false
     @State private var showDeleteConfirm = false
     @State private var showManageSubscriptions = false
+    @State private var authError: String? = nil
+    @State private var showAuthErrorAlert = false
+    @State private var isDeletingAccount = false
 
     private var currencyOptions: [String] { ExchangeRateService.supportedCodes }
 
@@ -70,17 +79,65 @@ struct SettingsView: View {
             isPresented: $showSignOutConfirm
         ) {
             Button("取消", role: .cancel) {}
-            Button("登出", role: .destructive) { auth.signOut() }
+            Button("登出", role: .destructive) { runSignOut() }
         }
         .systemAlert(
             "確定要刪除帳號？",
             isPresented: $showDeleteConfirm
         ) {
             Button("取消", role: .cancel) {}
-            // TODO(firebase): cascade delete user data once Cloud Function exists. Required for App Store 5.1.1(v).
-            Button("刪除", role: .destructive) { auth.signOut() }
+            // Phase 1: deletes the Firebase Auth user + wipes local SwiftData
+            // via the Phase 0 repositories (so tombstones queue for Phase 4).
+            // Cloud Function cascade for Firestore lands in Phase 4.
+            Button("刪除", role: .destructive) {
+                Task { await runDeleteAccount() }
+            }
         } message: {
-            Text("你的資料將永久移除，且無法復原。")
+            Text("登入帳號與本機資料都會永久移除，且無法復原。")
+        }
+        .systemAlert("發生錯誤", isPresented: $showAuthErrorAlert) {
+            Button("OK", role: .cancel) { authError = nil }
+        } message: {
+            Text(authError ?? "")
+        }
+        .disabled(isDeletingAccount)
+    }
+
+    // MARK: - Auth actions
+
+    private func runSignOut() {
+        do {
+            try auth.signOut()
+        } catch {
+            authError = error.localizedDescription
+            showAuthErrorAlert = true
+        }
+    }
+
+    private func runDeleteAccount() async {
+        guard !isDeletingAccount else { return }
+        guard let project = projectRepository,
+              let transaction = transactionRepository,
+              let timeLog = timeLogRepository,
+              let categoryItem = categoryItemRepository else {
+            authError = "Repositories missing — Phase 0 injection broken."
+            showAuthErrorAlert = true
+            return
+        }
+        let ctx = AuthService.AccountPurgeContext(
+            modelContext: modelContext,
+            project: project,
+            transaction: transaction,
+            timeLog: timeLog,
+            categoryItem: categoryItem
+        )
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        do {
+            try await auth.deleteAccount(localPurge: ctx)
+        } catch {
+            authError = error.localizedDescription
+            showAuthErrorAlert = true
         }
     }
 
@@ -189,19 +246,19 @@ struct SettingsView: View {
                 icon: Image(ph: "shield-check", weight: .regular),
                 label: "Privacy policy",
                 style: .external,
-                url: URL(string: "https://example.com/privacy")
+                url: URL(string: "https://ripe-cereal-4f9.notion.site/Privacy-Policy-36c341fcbfde806e850dd81ac8b72b63")
             )
             SettingsRow(
                 icon: Image(ph: "file-text", weight: .regular),
                 label: "Terms of use",
                 style: .external,
-                url: URL(string: "https://example.com/terms")
+                url: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
             )
             SettingsRow(
                 icon: Image(ph: "envelope", weight: .regular),
-                label: "Contact support",
+                label: "Contact developer",
                 style: .external,
-                url: URL(string: "mailto:support@example.com")
+                url: AppReviewPrompter.developerMailURL
             )
             SettingsRow(
                 icon: Image(ph: "info", weight: .regular),
@@ -566,8 +623,8 @@ private struct DeveloperOptionsView: View {
                         if !next { entitlements.reset() }
                     }
                     SettingsRow(
-                        icon: Image(ph: "arrow-counter-clockwise", weight: .regular),
-                        label: "Replay onboarding",
+                        icon: Image(ph: "monitor-play", weight: .regular),
+                        label: "Preview onboarding",
                         style: .none
                     ) {
                         needsOnboarding = true

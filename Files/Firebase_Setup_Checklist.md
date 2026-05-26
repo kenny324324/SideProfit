@@ -3,7 +3,7 @@
 Project: SideProfit (DevCal Xcode target)
 Strategy: UI is built local-first using SwiftData. Firebase is integrated **after** the UI is approved. This file collects every Firebase-related setup item discovered while building the UI, so the integration pass is mechanical.
 
-Last updated: 2026-05-12
+Last updated: 2026-05-26 (Phase 1 in flight — Auth wiring complete in code; SDK install + console config still on Kenny)
 
 ## 0. Firebase Console — Project Bootstrap
 
@@ -12,7 +12,7 @@ Last updated: 2026-05-12
 - [ ] Register an iOS app inside the Firebase project with bundle identifier matching the Xcode target (currently `DevCal` placeholder; final bundle ID TBD).
 - [ ] Download `GoogleService-Info.plist` and add to the Xcode target. **Do not commit** if repo is public; add to `.gitignore` and use Xcode build configurations to swap dev/prod plists.
 - [ ] Add Firebase iOS SDK via Swift Package Manager — minimum products: `FirebaseAuth`, `FirebaseFirestore`, `FirebaseCrashlytics`, `FirebaseAnalytics`, `FirebaseRemoteConfig` (RC optional; useful for the "What's New" announcement skill).
-- [ ] In `DevCalApp.swift`, call `FirebaseApp.configure()` inside an `init()` block before any view is created.
+- [x] In `DevCalApp.swift`, call `FirebaseApp.configure()` inside an `init()` block before any view is created. *(Phase 1 — done 2026-05-26; runs before `AuthService` is constructed.)*
 - [ ] Enable App Check (DeviceCheck on iOS) to block server abuse from non-app clients.
 
 ## 1. Firebase Auth
@@ -22,15 +22,12 @@ Triggered by: the mock Auth screen in `Features/Auth/`.
 - [ ] Enable **Sign in with Apple** in Firebase Console → Authentication → Sign-in method. Requires:
   - [ ] App's `Sign in with Apple` capability enabled in Xcode → Signing & Capabilities.
   - [ ] Service ID + private key registered in Apple Developer Portal, then uploaded to Firebase.
-- [ ] Enable **Google Sign-In**. Requires:
-  - [ ] Add reversed client ID URL scheme to `Info.plist`.
-  - [ ] Add `GoogleSignIn` SPM dependency.
-  - [ ] Wire `GIDSignIn.sharedInstance.configuration` from `GoogleService-Info.plist`.
-- [ ] Enable **Email link (passwordless)** or Email/Password. Decision pending — email link is friendlier for indie users; Email/Password is simpler but requires reset flow.
-- [ ] Replace `MockAuthService` in `Core/Services/AuthService.swift` with a `FirebaseAuthService` that conforms to the same `AuthServicing` protocol.
-- [ ] Implement Apple/Google credential exchange flows. Reference Firebase docs; ShipSwift `SWAuth` is Cognito-based so cannot be reused directly.
-- [ ] Account deletion flow (required by App Store guideline 5.1.1(v)): server-side delete on Auth user + cascading Firestore delete via Cloud Function.
-- [ ] Decide on anonymous-auth-first vs. mandatory-auth. Currently the UI assumes mandatory auth after onboarding.
+- [x] ~~Enable **Google Sign-In**~~. *Out of scope per Phase 1 decision (Apple-only mandatory auth). Revisit post-MVP if a real need surfaces.*
+- [x] ~~Enable **Email link (passwordless)** or Email/Password~~. *Out of scope per Phase 1 decision (Apple-only). No email path in MVP.*
+- [x] Replace `MockAuthService` in `Core/Services/AuthService.swift`. *(Phase 1 — done 2026-05-26.)* Implemented as a **facade** (concrete `AuthService` keeps its public surface; internals now talk to FirebaseAuth) per Codex audit recommendation — faster than introducing a fresh `AuthServicing` protocol.
+- [x] Implement Apple credential exchange. *(Phase 1 — done 2026-05-26.)* `signInWithApple()` uses `ASAuthorizationAppleIDProvider` + SHA-256 nonce + `OAuthProvider.appleCredential(...)` → `Auth.auth().signIn(with:)`. Google path explicitly skipped.
+- [x] Account deletion flow — **Phase 1 partial: local + Auth only.** `Auth.currentUser.delete()` + repository-driven local wipe enqueues `isDeleted = true` tombstones into `NoopSyncService` so Phase 4 sync will issue Firestore deletes. The Cloud Function cascade for App Store guideline 5.1.1(v) lands in **Phase 4** (no remote data to cascade until then, so MVP still complies).
+- [x] Decide on anonymous-auth-first vs. mandatory-auth. *(Decided 2026-05-26: **mandatory, Apple-only.** Onboarding lands the user on `AuthView` and there's no signed-out path into `MainTabView`.)*
 
 ## 2. Firestore Database
 
@@ -109,4 +106,4 @@ Triggered by: every SwiftData model in `Core/Models/`.
 
 This section grows as Phase 1 UI surfaces new requirements. Each item should reference the file/feature that surfaced it.
 
-- (none yet)
+- Phase 1 (2026-05-26): no `MilestoneRepository` exists yet, so `AuthService.purgeLocalData(_:)` doesn't enqueue tombstones for Milestone documents — they cascade-delete with their parent project locally but won't sync as tombstones. Add a `MilestoneRepository` before Phase 4 push/pull so milestone deletions reach Firestore.

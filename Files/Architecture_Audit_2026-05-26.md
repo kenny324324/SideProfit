@@ -370,14 +370,13 @@ DevCal/DevCal/Core/
       SyncStatus.swift
 ```
 
-### Phase 1: Auth — **PLANNED 2026-05-26 PM** (see [Phase_1_Plan_2026-05-26.md](Phase_1_Plan_2026-05-26.md))
+### Phase 1: Auth — **DONE (code-side) 2026-05-26** (see [Phase_1_Plan_2026-05-26.md](Phase_1_Plan_2026-05-26.md))
 
-1. Add Firebase SDK packages. *Manual prereq Kenny does — Phase 1 needs only `FirebaseAuth`.*
-2. Add `FirebaseApp.configure()` in `DevCalApp.init()`.
-3. Convert `AuthService` from mock storage to Firebase listener-backed state. *Use the facade approach (keep concrete `AuthService`, swap internals).*
-4. Keep the public UI-facing API stable so `RootView`, `AuthView`, and `SettingsView` do not need major rewrites. *Ripple: `signIn*` methods become `async throws`; views adopt the same `systemAlert` error pattern Phase 0 introduced.*
-
-See Phase 1 plan for the open decisions (anonymous-vs-mandatory, email-link-vs-password, account-deletion-scope) and the file-by-file edit list.
+1. ~~Add Firebase SDK packages~~. *Manual prereq Kenny does — Phase 1 needs only `FirebaseAuth`.* **Pending on Kenny.**
+2. `FirebaseApp.configure()` in `DevCalApp.init()`. **Done** — runs before `AuthService` is constructed via `_auth = State(initialValue: AuthService())`.
+3. Convert `AuthService` from mock storage to Firebase listener-backed state. **Done** — facade approach kept; `Auth.auth().addStateDidChangeListener` publishes account state; Sign in with Apple wired through `ASAuthorizationAppleIDProvider` + `OAuthProvider.appleCredential(...)`; Google / Email / Guest paths deleted under the Apple-only decision.
+4. `RootView`, `AuthView`, `SettingsView` ripple: `signInWithApple()` and `deleteAccount(...)` now `async throws`, `signOut()` `throws`; views surface failures through the existing `systemAlert` error pattern.
+5. **Decisions locked 2026-05-26 PM** (also recorded in plan): Apple-only mandatory auth, no email path, account deletion = local SwiftData wipe via Phase 0 repositories (queues tombstones for Phase 4) + `Auth.currentUser.delete()` — Cloud Function cascade deferred to Phase 4 with Firestore.
 
 ### Phase 2: DTOs and Remote Schema
 
