@@ -221,6 +221,7 @@ final class FirestoreSyncService: SyncServicing {
             try await pullTransactions(uid: uid, reader: reader, context: context)
             try await pullTimeLogs(uid: uid, reader: reader, context: context)
             try await pullCategoryItems(uid: uid, reader: reader, context: context)
+            try await pullMilestones(uid: uid, reader: reader, context: context)
             try context.save()
             status = .idle
             lastSyncedAt = Date()
@@ -254,6 +255,13 @@ final class FirestoreSyncService: SyncServicing {
         let docs = try await reader.fetchCategoryItems(ownerUid: uid, limit: pullPageLimit)
         for doc in docs {
             try upsertCategoryItem(doc, context: context)
+        }
+    }
+
+    private func pullMilestones(uid: String, reader: any RemoteReading, context: ModelContext) async throws {
+        let docs = try await reader.fetchMilestones(ownerUid: uid, limit: pullPageLimit)
+        for doc in docs {
+            try upsertMilestone(doc, context: context)
         }
     }
 
@@ -366,6 +374,37 @@ final class FirestoreSyncService: SyncServicing {
         } else {
             let new = doc.makeCategoryItem()
             new.projects = projects
+            context.insert(new)
+        }
+    }
+
+    /// Apply one MilestoneDocument to local SwiftData. Milestone has no
+    /// `updatedAt` in SwiftData yet (see MilestoneDocument.swift), so LWW
+    /// pivots on local `createdAt` against `doc.updatedAt` — which the DTO
+    /// mirrors from `createdAt` on the write side. Manual milestones are
+    /// generally write-once today; this anchor is good enough for MVP.
+    /// `internal` so pull tests can drive it directly without a mock reader.
+    func upsertMilestone(_ doc: MilestoneDocument, context: ModelContext) throws {
+        guard let uuid = UUID(uuidString: doc.id) else { return }
+
+        let all = try context.fetch(FetchDescriptor<Milestone>())
+        let existing = all.first { $0.id == uuid }
+
+        if doc.isDeleted {
+            if let existing { context.delete(existing) }
+            return
+        }
+
+        let project = try resolveProject(byId: doc.projectId, context: context)
+
+        if let existing {
+            if doc.updatedAt > existing.createdAt {
+                doc.apply(to: existing)
+                existing.project = project
+            }
+        } else {
+            let new = doc.makeMilestone()
+            new.project = project
             context.insert(new)
         }
     }
