@@ -14,11 +14,15 @@ import SwiftData
 import PhosphorSymbols
 
 struct AddProjectView: View {
-    @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.projectRepository) private var projectRepository
+    @Environment(AppReviewPrompter.self) private var appReviewPrompter
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
 
     var editing: Project?
+
+    @State private var saveError: String? = nil
+    @State private var showErrorAlert = false
 
     @State private var name: String = ""
     @State private var description: String = ""
@@ -133,10 +137,15 @@ struct AddProjectView: View {
                     .cancelActionStyle()
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
+                Button("Save") { Task { await runSave() } }
                     .confirmActionStyle()
                     .disabled(!canSave)
             }
+        }
+        .systemAlert("Save failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
         }
         .onAppear(perform: loadIfEditing)
         .sheet(isPresented: $showIconPicker) {
@@ -189,47 +198,53 @@ struct AddProjectView: View {
         }
     }
 
-    private func save() {
+    private func runSave() async {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmedName.isEmpty else { return }
+        guard !trimmedName.isEmpty, let repo = projectRepository else { return }
 
         let resolvedGoalAmount: Double? = breakEvenOnly ? nil : goalAmount
         let resolvedGoalCurrency: String? = breakEvenOnly ? nil : goalCurrencyCode
         let resolvedGoalDeadline: Date? = breakEvenOnly ? nil : (hasGoalDeadline ? goalDeadline : nil)
 
-        if let editing {
-            editing.name = trimmedName
-            editing.projectDescription = description
-            editing.kind = kind
-            editing.iconImageData = iconImageData
-            editing.iconPhName = iconPhName
-            editing.iconColorHex = iconColorHex
-            editing.status = status
-            editing.launchDate = hasLaunchDate ? launchDate : nil
-            editing.goalAmount = resolvedGoalAmount
-            editing.goalCurrencyCode = resolvedGoalCurrency
-            editing.goalDeadline = resolvedGoalDeadline
-            editing.updatedAt = Date()
-        } else {
-            let project = Project(
-                name: trimmedName,
-                description: description,
-                status: status,
-                kind: kind,
-                iconImageData: iconImageData,
-                iconPhName: iconPhName,
-                iconColorHex: iconColorHex,
-                launchDate: hasLaunchDate ? launchDate : nil,
-                goalAmount: resolvedGoalAmount,
-                goalCurrencyCode: resolvedGoalCurrency,
-                goalDeadline: resolvedGoalDeadline
-            )
-            let currentMin = (try? context.fetch(FetchDescriptor<Project>()).map(\.sortIndex).min()) ?? 0
-            project.sortIndex = currentMin - 1
-            context.insert(project)
+        let isCreating = editing == nil
+        do {
+            if let editing {
+                try await repo.updateProject(editing) { project in
+                    project.name = trimmedName
+                    project.projectDescription = description
+                    project.kind = kind
+                    project.iconImageData = iconImageData
+                    project.iconPhName = iconPhName
+                    project.iconColorHex = iconColorHex
+                    project.status = status
+                    project.launchDate = hasLaunchDate ? launchDate : nil
+                    project.goalAmount = resolvedGoalAmount
+                    project.goalCurrencyCode = resolvedGoalCurrency
+                    project.goalDeadline = resolvedGoalDeadline
+                }
+            } else {
+                _ = try await repo.createProject(
+                    name: trimmedName,
+                    description: description,
+                    status: status,
+                    kind: kind,
+                    iconImageData: iconImageData,
+                    iconPhName: iconPhName,
+                    iconColorHex: iconColorHex,
+                    launchDate: hasLaunchDate ? launchDate : nil,
+                    goalAmount: resolvedGoalAmount,
+                    goalCurrencyCode: resolvedGoalCurrency,
+                    goalDeadline: resolvedGoalDeadline
+                )
+            }
+            if isCreating {
+                appReviewPrompter.record(.projectCreated)
+            }
+            dismiss()
+        } catch {
+            saveError = error.localizedDescription
+            showErrorAlert = true
         }
-        try? context.save()
-        dismiss()
     }
 
 }

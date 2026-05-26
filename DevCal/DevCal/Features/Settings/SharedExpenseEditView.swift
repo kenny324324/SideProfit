@@ -14,9 +14,13 @@ import PhosphorSymbols
 
 struct SharedExpenseEditView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.categoryItemRepository) private var categoryItemRepository
     @Environment(\.dismiss) private var dismiss
     @Environment(ExchangeRateService.self) private var fx
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+
+    @State private var saveError: String? = nil
+    @State private var showErrorAlert = false
 
     var editing: CategoryItem?
     /// 由父頁透過 TransactionTypePickerSheet 預先決定的類型。新建時必傳;
@@ -64,6 +68,11 @@ struct SharedExpenseEditView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
         .sheet(isPresented: $showCategoryPicker) { categoryPickerSheet }
+        .systemAlert("Save failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
+        }
         .onAppear(perform: loadIfEditing)
     }
 
@@ -157,7 +166,9 @@ struct SharedExpenseEditView: View {
     private var deleteSection: some View {
         if editing != nil {
             Section {
-                Button(role: .destructive, action: deleteItem) {
+                Button(role: .destructive) {
+                    Task { await runDelete() }
+                } label: {
                     Label("刪除共用項目", phImage: "trash")
                 }
             }
@@ -241,7 +252,7 @@ struct SharedExpenseEditView: View {
             .cancelActionStyle()
         }
         ToolbarItem(placement: .confirmationAction) {
-            Button("儲存") { save() }
+            Button("儲存") { Task { await runSave() } }
                 .confirmActionStyle()
                 .disabled(!canSave)
         }
@@ -396,75 +407,78 @@ struct SharedExpenseEditView: View {
         splitMode = editing.splitMode
         let projects = editing.projects ?? []
         selectedProjectIDs = Set(projects.map(\.id))
-        if let weights = editing.weights, weights.count == projects.count {
-            for (idx, proj) in projects.enumerated() {
-                self.weights[proj.id] = weights[idx]
+        if let stored = editing.weightsByProjectId {
+            for proj in projects {
+                if let w = stored[proj.id.uuidString] {
+                    self.weights[proj.id] = w
+                }
             }
         }
     }
 
-    private func save() {
+    private func runSave() async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard canSave else { return }
+        guard canSave, let repo = categoryItemRepository else { return }
         let projects = orderedSelectedProjects
-        let weightArray: [Double]? = splitMode == .weighted
-            ? projects.map { weights[$0.id] ?? 0 }
+        let weightMap: [String: Double]? = splitMode == .weighted
+            ? Dictionary(
+                uniqueKeysWithValues: projects.map { ($0.id.uuidString, weights[$0.id] ?? 0) }
+            )
             : nil
 
-        // 在共用項目頁建的東西一律 isShared = true,即使只挑一個專案也是。
-        // 這樣 SharedExpensesView 的 filter (isShared == true) 才會顯示;
-        // AddTransactionView 訂閱流程建的 CategoryItem 才會被排除在外。
-        if let editing {
-            editing.name = trimmed
-            editing.category = category
-            editing.totalAmount = totalAmount
-            editing.originalCurrencyCode = originalCurrencyCode
-            editing.billingType = billingType
-            editing.nextDueDate = billingType.isRecurring ? nextDueDate : nil
-            editing.brandIconKey = brandIconKey
-            editing.fallbackIconName = fallbackIconName
-            editing.iconColorHex = iconColorHex
-            editing.splitMode = splitMode
-            editing.isShared = true
-            editing.projects = projects
-            editing.weights = weightArray
-            editing.updatedAt = Date()
-        } else {
-            let item = CategoryItem(
-                name: trimmed,
-                category: category,
-                totalAmount: totalAmount,
-                originalCurrencyCode: originalCurrencyCode,
-                billingType: billingType,
-                brandIconKey: brandIconKey,
-                fallbackIconName: fallbackIconName,
-                iconColorHex: iconColorHex,
-                nextDueDate: billingType.isRecurring ? nextDueDate : nil,
-                isActive: true,
-                isShared: true,
-                splitMode: splitMode,
-                weights: weightArray,
-                projects: projects
-            )
-            context.insert(item)
-        }
-        try? context.save()
-        // 立刻跑排程器:讓 startDate 為今天 / 過去日期的訂閱馬上產生交易,
-        // 使用者按存的當下就能在專案內看到。預設只在 app 啟動 / scenePhase
-        // .active 跑,這邊主動補一次。
-        SubscriptionScheduler.runDueCheck(
-            context: context,
-            displayCurrency: defaultCurrency,
-            fx: fx
+        let input = CategoryItemRepository.CategoryItemInput(
+            name: trimmed,
+            category: category,
+            totalAmount: totalAmount,
+            originalCurrencyCode: originalCurrencyCode,
+            billingType: billingType,
+            brandIconKey: brandIconKey,
+            fallbackIconName: fallbackIconName,
+            iconColorHex: iconColorHex,
+            nextDueDate: billingType.isRecurring ? nextDueDate : nil,
+            isActive: true,
+            // 在共用項目頁建的東西一律 isShared = true,即使只挑一個專案也是。
+            // 這樣 SharedExpensesView 的 filter (isShared == true) 才會顯示;
+            // AddTransactionView 訂閱流程建的 CategoryItem 才會被排除在外。
+            isShared: true,
+            splitMode: splitMode,
+            weightsByProjectId: weightMap,
+            projects: projects
         )
-        dismiss()
+
+        do {
+            if let editing {
+                try await repo.updateCategoryItem(editing, input)
+            } else {
+                _ = try await repo.createCategoryItem(input)
+            }
+            // 立刻跑排程器:讓 startDate 為今天 / 過去日期的訂閱馬上產生交易,
+            // 使用者按存的當下就能在專案內看到。預設只在 app 啟動 / scenePhase
+            // .active 跑,這邊主動補一次。
+            SubscriptionScheduler.runDueCheck(
+                context: context,
+                displayCurrency: defaultCurrency,
+                fx: fx
+            )
+            dismiss()
+        } catch {
+            present(error)
+        }
     }
 
-    private func deleteItem() {
-        guard let editing else { return }
-        context.delete(editing)
-        try? context.save()
-        dismiss()
+    private func runDelete() async {
+        guard let editing, let repo = categoryItemRepository else { return }
+        do {
+            try await repo.deleteCategoryItem(editing)
+            dismiss()
+        } catch {
+            present(error)
+        }
+    }
+
+    private func present(_ error: Error) {
+        saveError = error.localizedDescription
+        showErrorAlert = true
     }
 }
 

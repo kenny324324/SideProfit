@@ -8,8 +8,9 @@ import SwiftData
 import PhosphorSymbols
 
 struct AddTimeLogView: View {
-    @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.timeLogRepository) private var timeLogRepository
+    @Environment(AppReviewPrompter.self) private var appReviewPrompter
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
 
     let project: Project
@@ -20,6 +21,9 @@ struct AddTimeLogView: View {
     @State private var hourlyCurrencyCode: String = "TWD"
     @State private var note: String = ""
     @State private var date: Date = Date()
+
+    @State private var saveError: String? = nil
+    @State private var showErrorAlert = false
 
     @AppStorage("timeLog.lastHourlyRate") private var lastHourlyRate: Double = 400
     /// Empty on first use → fall back to the display currency so non-TWD
@@ -75,7 +79,7 @@ struct AddTimeLogView: View {
             if editing != nil {
                 Section {
                     Button(role: .destructive) {
-                        deleteLog()
+                        Task { await runDelete() }
                     } label: {
                         Label("Delete time log", phImage: "trash")
                     }
@@ -92,10 +96,15 @@ struct AddTimeLogView: View {
                     .cancelActionStyle()
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
+                Button("Save") { Task { await runSave() } }
                     .confirmActionStyle()
                     .disabled(hours <= 0)
             }
+        }
+        .systemAlert("Save failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
         }
         .onAppear(perform: loadIfEditing)
     }
@@ -113,35 +122,52 @@ struct AddTimeLogView: View {
         }
     }
 
-    private func save() {
-        if let editing {
-            editing.hours = hours
-            editing.hourlyRate = hourlyRate
-            editing.hourlyCurrencyCode = hourlyCurrencyCode
-            editing.note = note
-            editing.date = date
-            editing.updatedAt = Date()
-        } else {
-            let log = TimeLog(
-                hours: hours,
-                hourlyRate: hourlyRate,
-                hourlyCurrencyCode: hourlyCurrencyCode,
-                note: note,
-                date: date,
-                project: project
-            )
-            context.insert(log)
+    private func runSave() async {
+        guard let repo = timeLogRepository else { return }
+        let isCreating = editing == nil
+        do {
+            if let editing {
+                try await repo.updateTimeLog(
+                    editing,
+                    hours: hours,
+                    hourlyRate: hourlyRate,
+                    hourlyCurrencyCode: hourlyCurrencyCode,
+                    note: note,
+                    date: date
+                )
+            } else {
+                _ = try await repo.createTimeLog(
+                    project: project,
+                    hours: hours,
+                    hourlyRate: hourlyRate,
+                    hourlyCurrencyCode: hourlyCurrencyCode,
+                    note: note,
+                    date: date
+                )
+            }
+            lastHourlyRate = hourlyRate
+            lastHourlyCurrency = hourlyCurrencyCode
+            if isCreating {
+                appReviewPrompter.record(.timeLogCreated)
+            }
+            dismiss()
+        } catch {
+            present(error)
         }
-        lastHourlyRate = hourlyRate
-        lastHourlyCurrency = hourlyCurrencyCode
-        try? context.save()
-        dismiss()
     }
 
-    private func deleteLog() {
-        guard let editing else { return }
-        context.delete(editing)
-        try? context.save()
-        dismiss()
+    private func runDelete() async {
+        guard let repo = timeLogRepository, let editing else { return }
+        do {
+            try await repo.deleteTimeLog(editing)
+            dismiss()
+        } catch {
+            present(error)
+        }
+    }
+
+    private func present(_ error: Error) {
+        saveError = error.localizedDescription
+        showErrorAlert = true
     }
 }

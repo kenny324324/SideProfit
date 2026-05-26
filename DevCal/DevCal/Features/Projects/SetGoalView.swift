@@ -11,8 +11,8 @@ import SwiftData
 import PhosphorSymbols
 
 struct SetGoalView: View {
-    @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.projectRepository) private var projectRepository
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
     @Bindable var project: Project
 
@@ -20,6 +20,9 @@ struct SetGoalView: View {
     @State private var goalCurrencyCode: String = "TWD"
     @State private var hasDeadline: Bool = false
     @State private var deadline: Date = Date()
+
+    @State private var saveError: String? = nil
+    @State private var showErrorAlert = false
 
     private var isEditing: Bool { project.goalAmount != nil }
 
@@ -65,7 +68,7 @@ struct SetGoalView: View {
             if isEditing {
                 Section {
                     Button(role: .destructive) {
-                        clearGoal()
+                        Task { await runClearGoal() }
                     } label: {
                         Label("Clear goal", phImage: "trash")
                     }
@@ -82,10 +85,15 @@ struct SetGoalView: View {
                     .cancelActionStyle()
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
+                Button("Save") { Task { await runSave() } }
                     .confirmActionStyle()
                     .disabled(goalAmount <= 0)
             }
+        }
+        .systemAlert("Save failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
         }
         .onAppear(perform: loadIfEditing)
     }
@@ -103,21 +111,33 @@ struct SetGoalView: View {
         }
     }
 
-    private func save() {
-        project.goalAmount = goalAmount
-        project.goalCurrencyCode = goalCurrencyCode
-        project.goalDeadline = hasDeadline ? deadline : nil
-        project.updatedAt = Date()
-        try? context.save()
-        dismiss()
+    private func runSave() async {
+        guard let repo = projectRepository else { return }
+        do {
+            try await repo.setGoal(
+                on: project,
+                amount: goalAmount,
+                currencyCode: goalCurrencyCode,
+                deadline: hasDeadline ? deadline : nil
+            )
+            dismiss()
+        } catch {
+            present(error)
+        }
     }
 
-    private func clearGoal() {
-        project.goalAmount = nil
-        project.goalCurrencyCode = nil
-        project.goalDeadline = nil
-        project.updatedAt = Date()
-        try? context.save()
-        dismiss()
+    private func runClearGoal() async {
+        guard let repo = projectRepository else { return }
+        do {
+            try await repo.setGoal(on: project, amount: nil, currencyCode: nil, deadline: nil)
+            dismiss()
+        } catch {
+            present(error)
+        }
+    }
+
+    private func present(_ error: Error) {
+        saveError = error.localizedDescription
+        showErrorAlert = true
     }
 }

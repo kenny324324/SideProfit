@@ -12,14 +12,19 @@
 //  跳 systemAlert 詢問是否補一筆平台抽成（Apple / Google 自動偵測，無法
 //  偵測時先問廠商）。
 //
+//  Phase 0: persistence + business rules moved to TransactionUseCase. This
+//  file now owns form state, validation gating, the platform-fee alert flow,
+//  and surfacing errors.
+//
 
 import SwiftUI
 import SwiftData
 import PhosphorSymbols
 
 struct AddTransactionView: View {
-    @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.transactionUseCase) private var useCase
+    @Environment(AppReviewPrompter.self) private var appReviewPrompter
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
     @Environment(ExchangeRateService.self) private var fx
 
@@ -40,36 +45,16 @@ struct AddTransactionView: View {
     @State private var date: Date = Date()
     @State private var showCategoryPicker = false
 
-    // Platform-fee flow state
+    // Platform-fee flow state. The view drives the alert; the use case
+    // actually creates the fee Transaction.
     @State private var showVendorAlert = false
     @State private var showPercentAlert = false
-    @State private var feeVendor: FeeVendor? = nil
+    @State private var feeVendor: PlatformFeeVendor? = nil
+    @State private var pendingReviewReachedBreakEven = false
 
-    private enum FeeVendor {
-        case apple
-        case google
-
-        var rawCategory: TransactionCategory {
-            switch self {
-            case .apple: return .appStoreFee
-            case .google: return .googlePlayFee
-            }
-        }
-
-        var feeName: String {
-            switch self {
-            case .apple: return "Apple 平台抽成"
-            case .google: return "Google 平台抽成"
-            }
-        }
-
-        var brandKey: String {
-            switch self {
-            case .apple: return "apple"
-            case .google: return "google"
-            }
-        }
-    }
+    // Error surface. Repos throw `DataLayerError`; we show it via a single alert.
+    @State private var saveError: String? = nil
+    @State private var showErrorAlert = false
 
     init(project: Project, initialType: TransactionType = .expense, editing: Transaction? = nil) {
         self.project = project
@@ -136,7 +121,7 @@ struct AddTransactionView: View {
             if editing != nil {
                 Section {
                     Button(role: .destructive) {
-                        deleteTransaction()
+                        Task { await runDelete() }
                     } label: {
                         Label(deleteLabelKey, phImage: "trash")
                     }
@@ -154,7 +139,9 @@ struct AddTransactionView: View {
                     .cancelActionStyle()
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
+                Button("Save") {
+                    Task { await runSave() }
+                }
                     .confirmActionStyle()
                     .disabled(!canSave)
             }
@@ -182,11 +169,16 @@ struct AddTransactionView: View {
             Text("會用來計算平台抽成。")
         }
         .systemAlert("同時記一筆平台抽成？", isPresented: $showPercentAlert) {
-            Button("記 30%") { createPlatformFee(percent: 0.30) }
-            Button("記 15%") { createPlatformFee(percent: 0.15) }
+            Button("記 30%") { Task { await runCreatePlatformFee(percent: 0.30) } }
+            Button("記 15%") { Task { await runCreatePlatformFee(percent: 0.15) } }
             Button("跳過", role: .cancel) { finishAfterFeeFlow() }
         } message: {
             Text("Apple/Google 通常會收取 30%(小型企業 15%)。會自動建立一筆對應的支出。")
+        }
+        .systemAlert("Save failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
         }
         .onAppear(perform: loadIfEditing)
     }
@@ -306,7 +298,7 @@ struct AddTransactionView: View {
         type == .income ? "收入名稱" : "支出名稱"
     }
 
-    // MARK: - Persistence
+    // MARK: - Loading
 
     private func loadIfEditing() {
         guard let editing else {
@@ -325,62 +317,15 @@ struct AddTransactionView: View {
         date = editing.date
     }
 
-    private func save() {
-        guard canSave, let category else { return }
-        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+    // MARK: - Save / Delete
 
-        if let editing {
-            editing.type = type
-            editing.name = trimmedName
-            editing.category = category
-            editing.iconBrandKey = iconBrandKey
-            editing.iconFallbackName = iconFallbackName
-            editing.iconColorHex = iconColorHex
-            editing.originalAmount = amount
-            editing.originalCurrencyCode = originalCurrencyCode
-            editing.note = note
-            editing.date = date
-            editing.updatedAt = Date()
-            project.stampBreakevenIfReached(in: defaultCurrency, fx: fx, triggerDate: date)
-            try? context.save()
-            dismiss()
-            return
-        }
-
-        // 訂閱:只建 CategoryItem,讓排程器產生所有交易(包含開始日期是
-        // 過去時的補齊)。不在這裡額外塞一筆 Transaction,避免跟排程器
-        // 為今天那一期重複。
-        if billingType.isRecurring {
-            let item = CategoryItem(
-                name: trimmedName,
-                category: category,
-                totalAmount: amount,
-                originalCurrencyCode: originalCurrencyCode,
-                billingType: billingType,
-                brandIconKey: iconBrandKey,
-                fallbackIconName: iconFallbackName,
-                iconColorHex: iconColorHex,
-                nextDueDate: nextDueDate,
-                isActive: true,
-                isShared: false,
-                projects: [project]
-            )
-            context.insert(item)
-            try? context.save()
-            SubscriptionScheduler.runDueCheck(
-                context: context,
-                displayCurrency: defaultCurrency,
-                fx: fx
-            )
-            dismiss()
-            return
-        }
-
-        // 單次:直接建一筆 Transaction。
-        let txn = Transaction(
+    private func currentFormInput() -> TransactionUseCase.TransactionFormInput? {
+        guard let category else { return nil }
+        return TransactionUseCase.TransactionFormInput(
+            project: project,
             type: type,
             category: category,
-            name: trimmedName,
+            name: name,
             iconBrandKey: iconBrandKey,
             iconFallbackName: iconFallbackName,
             iconColorHex: iconColorHex,
@@ -388,33 +333,79 @@ struct AddTransactionView: View {
             originalCurrencyCode: originalCurrencyCode,
             note: note,
             date: date,
-            project: project,
-            sourceCategoryItemID: nil
+            billingType: billingType,
+            nextDueDate: nextDueDate
         )
-        context.insert(txn)
-        project.stampBreakevenIfReached(in: defaultCurrency, fx: fx, triggerDate: date)
-        try? context.save()
+    }
 
-        // Platform fee flow:only for app-sales / subscriptions income.
-        if shouldOfferPlatformFee {
-            if let detected = detectVendor() {
-                feeVendor = detected
-                showPercentAlert = true
+    private func runSave() async {
+        guard let useCase, let input = currentFormInput() else { return }
+        do {
+            let outcome: TransactionUseCase.TransactionSaveOutcome
+            if let editing {
+                outcome = try await useCase.update(
+                    editing,
+                    with: input,
+                    displayCurrency: defaultCurrency,
+                    fx: fx
+                )
             } else {
-                showVendorAlert = true
+                outcome = try await useCase.save(
+                    input,
+                    displayCurrency: defaultCurrency,
+                    fx: fx
+                )
             }
+
+            if outcome.shouldOfferPlatformFee {
+                pendingReviewReachedBreakEven = outcome.reachedBreakEvenForThisWrite
+                if let detected = detectVendor() {
+                    feeVendor = detected
+                    showPercentAlert = true
+                } else {
+                    showVendorAlert = true
+                }
+                return
+            }
+
+            recordSuccessfulTransaction(reachedBreakEven: outcome.reachedBreakEvenForThisWrite)
+            dismiss()
+        } catch {
+            present(error)
+        }
+    }
+
+    private func runDelete() async {
+        guard let useCase, let editing else { return }
+        do {
+            try await useCase.delete(editing)
+            dismiss()
+        } catch {
+            present(error)
+        }
+    }
+
+    private func runCreatePlatformFee(percent: Double) async {
+        guard let useCase, let vendor = feeVendor, let input = currentFormInput() else {
+            finishAfterFeeFlow()
             return
         }
-
-        dismiss()
+        do {
+            let feeAlsoTippedBreakEven = try await useCase.createPlatformFee(
+                for: input,
+                vendor: vendor,
+                percent: percent,
+                displayCurrency: defaultCurrency,
+                fx: fx
+            )
+            pendingReviewReachedBreakEven = pendingReviewReachedBreakEven || feeAlsoTippedBreakEven
+            finishAfterFeeFlow()
+        } catch {
+            present(error)
+        }
     }
 
-    private var shouldOfferPlatformFee: Bool {
-        guard let category, type == .income else { return false }
-        return category == .appSales || category == .subscriptions
-    }
-
-    private func detectVendor() -> FeeVendor? {
+    private func detectVendor() -> PlatformFeeVendor? {
         if iconBrandKey == "apple" { return .apple }
         if iconBrandKey == "google" { return .google }
         let lowered = name.lowercased()
@@ -423,34 +414,23 @@ struct AddTransactionView: View {
         return nil
     }
 
-    private func createPlatformFee(percent: Double) {
-        guard let vendor = feeVendor else {
-            finishAfterFeeFlow()
-            return
-        }
-        let feeAmount = (amount * percent).rounded()
-        let feeTxn = Transaction(
-            type: .expense,
-            category: vendor.rawCategory,
-            name: vendor.feeName,
-            iconBrandKey: vendor.brandKey,
-            iconFallbackName: nil,
-            iconColorHex: nil,
-            originalAmount: feeAmount,
-            originalCurrencyCode: originalCurrencyCode,
-            note: "來自:\(name.isEmpty ? (category?.rawValue ?? "收入") : name)",
-            date: date,
-            project: project
-        )
-        context.insert(feeTxn)
-        project.stampBreakevenIfReached(in: defaultCurrency, fx: fx, triggerDate: date)
-        try? context.save()
-        finishAfterFeeFlow()
-    }
-
     private func finishAfterFeeFlow() {
+        recordSuccessfulTransaction(reachedBreakEven: pendingReviewReachedBreakEven)
+        pendingReviewReachedBreakEven = false
         feeVendor = nil
         dismiss()
+    }
+
+    private func recordSuccessfulTransaction(reachedBreakEven: Bool) {
+        appReviewPrompter.record(.transactionCreated)
+        if reachedBreakEven {
+            appReviewPrompter.record(.breakEvenReached)
+        }
+    }
+
+    private func present(_ error: Error) {
+        saveError = error.localizedDescription
+        showErrorAlert = true
     }
 
     /// 連續觸發兩個 systemAlert 之間需要一個短延遲，避免第二個 alert 被
@@ -470,12 +450,5 @@ struct AddTransactionView: View {
 
     private var deleteLabelKey: LocalizedStringKey {
         type == .income ? "Delete income" : "Delete expense"
-    }
-
-    private func deleteTransaction() {
-        guard let editing else { return }
-        context.delete(editing)
-        try? context.save()
-        dismiss()
     }
 }

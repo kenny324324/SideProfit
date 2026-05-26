@@ -44,6 +44,14 @@ final class Transaction {
     /// 「這筆是 ChatGPT 訂閱第 5 期」之類的追溯。手動新增的單次交易為 nil。
     var sourceCategoryItemID: UUID? = nil
 
+    /// Scheduler-generated transactions stamp a stable string of
+    /// `{categoryItemId}_{projectId}_{yyyyMMdd}` so two devices firing the
+    /// scheduler for the same billing period converge on the same remote
+    /// document instead of duplicating. Local-only idempotency is still
+    /// enforced via `sourceCategoryItemID` + same-day check. Manual rows leave
+    /// this nil.
+    var deterministicID: String? = nil
+
     var project: Project?
 
     init(
@@ -58,7 +66,8 @@ final class Transaction {
         note: String = "",
         date: Date = Date(),
         project: Project? = nil,
-        sourceCategoryItemID: UUID? = nil
+        sourceCategoryItemID: UUID? = nil,
+        deterministicID: String? = nil
     ) {
         self.id = UUID()
         self.typeRaw = type.rawValue
@@ -73,6 +82,7 @@ final class Transaction {
         self.date = date
         self.project = project
         self.sourceCategoryItemID = sourceCategoryItemID
+        self.deterministicID = deterministicID
         let now = Date()
         self.createdAt = now
         self.updatedAt = now

@@ -10,7 +10,7 @@ import SwiftData
 
 @main
 struct DevCalApp: App {
-    @AppStorage("needsOnboarding") private var needsOnboarding = true
+    @AppStorage("needsOnboarding") private var needsOnboarding = false
     @AppStorage("preferredAppearance") private var preferredAppearance: String = "system"
     @AppStorage(Typography.DefaultsKey.latinMode) private var latinMode: String = Typography.FontMode.branded.rawValue
     @AppStorage(Typography.DefaultsKey.cjkMode) private var cjkMode: String = Typography.FontMode.native.rawValue
@@ -19,10 +19,22 @@ struct DevCalApp: App {
     @State private var auth = AuthService()
     @State private var entitlements = Entitlements()
     @State private var fx = ExchangeRateService.shared
+    @State private var appReviewPrompter = AppReviewPrompter()
     @State private var showSplash = true
+    // Data layer: a NoopSyncService stands in for Phase-4 Firestore so views
+    // can already depend on the repository / sync API. Held as a single
+    // instance so background work and the UI agree on `status`.
+    @State private var syncService: NoopSyncService = NoopSyncService()
+    @State private var projectRepository: ProjectRepository
+    @State private var transactionRepository: TransactionRepository
+    @State private var timeLogRepository: TimeLogRepository
+    @State private var categoryItemRepository: CategoryItemRepository
+    @State private var transactionUseCase: TransactionUseCase
     #if DEBUG
     @AppStorage("splashPreviewTrigger") private var splashPreviewTrigger: Int = 0
     #endif
+
+    private let container: ModelContainer
 
     init() {
         Typography.applyUIKitAppearance()
@@ -35,9 +47,7 @@ struct DevCalApp: App {
             UserDefaults.standard.set(supported.contains(locale) ? locale : "TWD",
                                       forKey: "defaultCurrency")
         }
-    }
 
-    private let container: ModelContainer = {
         let schema = Schema([
             Project.self,
             Transaction.self,
@@ -46,25 +56,47 @@ struct DevCalApp: App {
             CategoryItem.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let resolvedContainer: ModelContainer
         do {
-            let container = try ModelContainer(for: schema, configurations: [config])
-            Task { @MainActor in
-                SeedData.seedIfEmpty(container.mainContext)
-                // First scheduler pass uses the user's display currency for
-                // break-even stamping; FX may be cold but stamping is
-                // best-effort anyway.
-                let displayCurrency = UserDefaults.standard.string(forKey: "defaultCurrency") ?? "TWD"
-                SubscriptionScheduler.runDueCheck(
-                    context: container.mainContext,
-                    displayCurrency: displayCurrency,
-                    fx: ExchangeRateService.shared
-                )
-            }
-            return container
+            resolvedContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
             fatalError("ModelContainer init failed: \(error)")
         }
-    }()
+        self.container = resolvedContainer
+
+        // App.init runs on the main actor (SwiftUI App is @MainActor), so
+        // mainContext / repository ctors are safe to call synchronously here.
+        let context = resolvedContainer.mainContext
+        let initialSync = NoopSyncService()
+        let projectRepo = ProjectRepository(context: context, sync: initialSync)
+        let txnRepo = TransactionRepository(context: context, sync: initialSync)
+        let timeLogRepo = TimeLogRepository(context: context, sync: initialSync)
+        let categoryRepo = CategoryItemRepository(context: context, sync: initialSync)
+        let useCase = TransactionUseCase(
+            context: context,
+            transactionRepository: txnRepo,
+            categoryItemRepository: categoryRepo
+        )
+        _syncService = State(initialValue: initialSync)
+        _projectRepository = State(initialValue: projectRepo)
+        _transactionRepository = State(initialValue: txnRepo)
+        _timeLogRepository = State(initialValue: timeLogRepo)
+        _categoryItemRepository = State(initialValue: categoryRepo)
+        _transactionUseCase = State(initialValue: useCase)
+
+        Task { @MainActor in
+            SeedData.seedIfEmpty(resolvedContainer.mainContext)
+            // First scheduler pass uses the user's display currency for
+            // break-even stamping; FX may be cold but stamping is
+            // best-effort anyway.
+            let displayCurrency = UserDefaults.standard.string(forKey: "defaultCurrency") ?? "TWD"
+            SubscriptionScheduler.runDueCheck(
+                context: resolvedContainer.mainContext,
+                displayCurrency: displayCurrency,
+                fx: ExchangeRateService.shared
+            )
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -73,7 +105,15 @@ struct DevCalApp: App {
                     .environment(auth)
                     .environment(entitlements)
                     .environment(fx)
+                    .environment(appReviewPrompter)
+                    .environment(\.projectRepository, projectRepository)
+                    .environment(\.transactionRepository, transactionRepository)
+                    .environment(\.timeLogRepository, timeLogRepository)
+                    .environment(\.categoryItemRepository, categoryItemRepository)
+                    .environment(\.transactionUseCase, transactionUseCase)
                     .dismissKeyboardOnTapOutside()
+                    .inAppBrowser()
+                    .appReviewPrompt(appReviewPrompter)
                     .fullScreenCover(isPresented: $needsOnboarding) {
                         SWOnboardingView {
                             needsOnboarding = false

@@ -61,8 +61,11 @@ final class CategoryItem {
     /// true  → shared across multiple projects with `splitMode`/`weights`.
     var isShared: Bool = false
     var splitModeRaw: String = SplitMode.equal.rawValue
-    /// Index-matched to `projects` when splitModeRaw == .weighted.
-    var weights: [Double]? = nil
+    /// Per-project share weights keyed by project id (UUID.uuidString) when
+    /// `splitModeRaw == .weighted`. Keyed rather than index-matched so the
+    /// weights survive Firestore round-trips and any reordering of `projects`.
+    /// nil → fall back to equal split.
+    var weightsByProjectId: [String: Double]? = nil
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 
@@ -82,7 +85,7 @@ final class CategoryItem {
         isActive: Bool = true,
         isShared: Bool = false,
         splitMode: SplitMode = .equal,
-        weights: [Double]? = nil,
+        weightsByProjectId: [String: Double]? = nil,
         projects: [Project] = []
     ) {
         self.id = UUID()
@@ -98,7 +101,7 @@ final class CategoryItem {
         self.isActive = isActive
         self.isShared = isShared
         self.splitModeRaw = splitMode.rawValue
-        self.weights = weights
+        self.weightsByProjectId = weightsByProjectId
         self.projects = projects
         let now = Date()
         self.createdAt = now
@@ -135,16 +138,22 @@ final class CategoryItem {
         if !isShared || list.count == 1 {
             return totalAmount
         }
+        // Project not in the allocation → 0, regardless of mode.
+        guard list.contains(where: { $0.id == project.id }) else { return 0 }
         switch splitMode {
         case .equal:
             return totalAmount / Double(list.count)
         case .weighted:
-            guard let weights, weights.count == list.count else {
+            guard let weightsByProjectId else {
                 return totalAmount / Double(list.count)
             }
-            guard let idx = list.firstIndex(where: { $0.id == project.id }) else { return 0 }
-            let total = weights.reduce(0, +)
-            return total > 0 ? totalAmount * (weights[idx] / total) : 0
+            // Total over the *currently allocated* projects only — stale keys
+            // for removed projects shouldn't dilute the active split.
+            let active = list.map { weightsByProjectId[$0.id.uuidString] ?? 0 }
+            let total = active.reduce(0, +)
+            guard total > 0 else { return totalAmount / Double(list.count) }
+            let myWeight = weightsByProjectId[project.id.uuidString] ?? 0
+            return totalAmount * (myWeight / total)
         }
     }
 

@@ -21,6 +21,25 @@ import Foundation
 import SwiftData
 
 enum SubscriptionScheduler {
+    /// Format the deterministic Transaction id stamped on every
+    /// scheduler-generated row. Pinned to the calendar day in the *current*
+    /// timezone so two devices in the same region converge on the same id.
+    /// The sync layer can rely on this string when deduping remote pushes.
+    static func deterministicTransactionID(
+        categoryItemID: UUID,
+        projectID: UUID,
+        date: Date,
+        calendar: Calendar = .current
+    ) -> String {
+        let day = calendar.startOfDay(for: date)
+        let components = calendar.dateComponents([.year, .month, .day], from: day)
+        let y = components.year ?? 0
+        let m = components.month ?? 0
+        let d = components.day ?? 0
+        let dayString = String(format: "%04d%02d%02d", y, m, d)
+        return "\(categoryItemID.uuidString)_\(projectID.uuidString)_\(dayString)"
+    }
+
     /// Idempotency guard: a Transaction is considered "already created for
     /// this due date" if it carries the same `sourceCategoryItemID` and its
     /// `date` falls on the same calendar day as the due date for that project.
@@ -116,7 +135,13 @@ enum SubscriptionScheduler {
                 note: "",
                 date: date,
                 project: project,
-                sourceCategoryItemID: item.id
+                sourceCategoryItemID: item.id,
+                deterministicID: deterministicTransactionID(
+                    categoryItemID: item.id,
+                    projectID: project.id,
+                    date: date,
+                    calendar: calendar
+                )
             )
             context.insert(txn)
             project.stampBreakevenIfReached(in: displayCurrency, fx: fx, triggerDate: date)

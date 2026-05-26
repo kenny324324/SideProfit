@@ -11,7 +11,7 @@ import SwiftData
 import PhosphorSymbols
 
 struct ProjectListView: View {
-    @Environment(\.modelContext) private var context
+    @Environment(\.projectRepository) private var projectRepository
     @Environment(Entitlements.self) private var entitlements
     @Query(
         sort: [
@@ -28,6 +28,8 @@ struct ProjectListView: View {
     @State private var editingProject: Project?
     @State private var pendingDelete: Project?
     @State private var showDeleteConfirm = false
+    @State private var listError: String? = nil
+    @State private var showErrorAlert = false
 
     var body: some View {
         Group {
@@ -102,16 +104,32 @@ struct ProjectListView: View {
             Button("取消", role: .cancel) { pendingDelete = nil }
             Button("刪除", role: .destructive) {
                 if let project = pendingDelete {
-                    withAnimation {
-                        context.delete(project)
-                        try? context.save()
-                    }
+                    Task { await runDelete(project) }
                 }
                 pendingDelete = nil
             }
         } message: {
             Text("此專案的所有支出與收入記錄將一併刪除，且無法復原。")
         }
+        .systemAlert("Operation failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { listError = nil }
+        } message: {
+            Text(listError ?? "")
+        }
+    }
+
+    private func runDelete(_ project: Project) async {
+        guard let repo = projectRepository else { return }
+        do {
+            try await repo.deleteProject(project)
+        } catch {
+            present(error)
+        }
+    }
+
+    private func present(_ error: Error) {
+        listError = error.localizedDescription
+        showErrorAlert = true
     }
 
     private func addOrUpsell() {
@@ -187,13 +205,16 @@ struct ProjectListView: View {
     /// Skipped while the user is searching — the filtered indices wouldn't
     /// map cleanly back to the full project array.
     private func handleMove(_ from: IndexSet, _ to: Int) {
-        guard searchText.isEmpty else { return }
+        guard searchText.isEmpty, let repo = projectRepository else { return }
         var items = projects
         items.move(fromOffsets: from, toOffset: to)
-        for (idx, project) in items.enumerated() {
-            project.sortIndex = Double(idx)
+        Task {
+            do {
+                try await repo.reorder(items)
+            } catch {
+                present(error)
+            }
         }
-        try? context.save()
     }
 
     private var emptyState: some View {
