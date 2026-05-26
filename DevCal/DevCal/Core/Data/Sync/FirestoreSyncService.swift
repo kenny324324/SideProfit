@@ -215,7 +215,10 @@ final class FirestoreSyncService: SyncServicing {
         status = .pulling
 
         do {
+            // Projects first so transactions / timeLogs / milestones / categoryItems
+            // can resolve their projectId relationship by the time they're applied.
             try await pullProjects(uid: uid, reader: reader, context: context)
+            try await pullTransactions(uid: uid, reader: reader, context: context)
             try context.save()
             status = .idle
             lastSyncedAt = Date()
@@ -228,6 +231,13 @@ final class FirestoreSyncService: SyncServicing {
         let docs = try await reader.fetchProjects(ownerUid: uid, limit: pullPageLimit)
         for doc in docs {
             try upsertProject(doc, context: context)
+        }
+    }
+
+    private func pullTransactions(uid: String, reader: any RemoteReading, context: ModelContext) async throws {
+        let docs = try await reader.fetchTransactions(ownerUid: uid, limit: pullPageLimit)
+        for doc in docs {
+            try upsertTransaction(doc, context: context)
         }
     }
 
@@ -257,6 +267,45 @@ final class FirestoreSyncService: SyncServicing {
             let new = doc.makeProject()
             context.insert(new)
         }
+    }
+
+    /// Apply one TransactionDocument to local SwiftData. Hydrates the
+    /// `project` relationship by looking up the parent Project by id.
+    /// `internal` so pull tests can drive it directly without a mock reader.
+    func upsertTransaction(_ doc: TransactionDocument, context: ModelContext) throws {
+        guard let uuid = UUID(uuidString: doc.id) else { return }
+
+        let all = try context.fetch(FetchDescriptor<Transaction>())
+        let existing = all.first { $0.id == uuid }
+
+        if doc.isDeleted {
+            if let existing { context.delete(existing) }
+            return
+        }
+
+        let project = try resolveProject(byId: doc.projectId, context: context)
+
+        if let existing {
+            if doc.updatedAt > existing.updatedAt {
+                doc.apply(to: existing)
+                existing.project = project
+            }
+        } else {
+            let new = doc.makeTransaction()
+            new.project = project
+            context.insert(new)
+        }
+    }
+
+    /// Look up a `Project` by its UUID string. Returns nil if `projectIdString`
+    /// is nil or the project hasn't been pulled yet — sync layer treats nil as
+    /// orphaned per the DTO comment.
+    private func resolveProject(byId projectIdString: String?, context: ModelContext) throws -> Project? {
+        guard let projectIdString,
+              let projectUUID = UUID(uuidString: projectIdString)
+        else { return nil }
+        let all = try context.fetch(FetchDescriptor<Project>())
+        return all.first { $0.id == projectUUID }
     }
 
     // MARK: - Status
