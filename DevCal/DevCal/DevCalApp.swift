@@ -98,7 +98,6 @@ struct DevCalApp: App {
         _transactionUseCase = State(initialValue: useCase)
 
         Task { @MainActor [initialSync] in
-            SeedData.seedIfEmpty(resolvedContainer.mainContext)
             // First scheduler pass uses the user's display currency for
             // break-even stamping; FX may be cold but stamping is
             // best-effort anyway.
