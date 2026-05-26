@@ -77,7 +77,7 @@ struct DevCalApp: App {
         // App.init runs on the main actor (SwiftUI App is @MainActor), so
         // mainContext / repository ctors are safe to call synchronously here.
         let context = resolvedContainer.mainContext
-        let initialSync = FirestoreSyncService()
+        let initialSync = FirestoreSyncService(modelContext: context)
         let projectRepo = ProjectRepository(context: context, sync: initialSync)
         let txnRepo = TransactionRepository(context: context, sync: initialSync)
         let timeLogRepo = TimeLogRepository(context: context, sync: initialSync)
@@ -160,6 +160,15 @@ struct DevCalApp: App {
             .task {
                 // Pull fresh rates on launch if the cache is older than 6h.
                 await fx.refreshIfNeeded()
+            }
+            .task(id: auth.account?.id) {
+                // Auto-sync on launch (if already signed in) and whenever
+                // sign-in lands. syncNow() is push-then-pull, so existing
+                // cloud data flows down without the user having to find the
+                // "立即同步" button. Errors surface as syncService.status =
+                // .failed; CloudSyncSettingsView reads it.
+                guard auth.account != nil else { return }
+                try? await syncService.syncNow()
             }
             #if DEBUG
             .onChange(of: splashPreviewTrigger) { _, _ in

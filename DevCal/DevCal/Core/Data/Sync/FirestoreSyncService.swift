@@ -24,6 +24,7 @@
 //
 
 import Foundation
+import SwiftData
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -45,32 +46,44 @@ final class FirestoreSyncService: SyncServicing {
     private let queueURL: URL
     private let currentUID: @MainActor () -> String?
     private let remote: (any RemoteWriting)?
+    private let reader: (any RemoteReading)?
+    private let modelContext: ModelContext?
+    private let pullPageLimit: Int
 
     // MARK: - Init
 
     /// Designated init. Production callers use the convenience init that
     /// resolves the uid from FirebaseAuth and writes via FirestoreRemoteWriter;
-    /// tests inject their own closure + a temp queue URL + a mock writer.
+    /// tests inject their own closure + a temp queue URL + a mock writer +
+    /// (for pull tests) a mock reader and an in-memory ModelContext.
     init(
         currentUID: @escaping @MainActor () -> String?,
         queueURL: URL,
-        remote: (any RemoteWriting)? = nil
+        remote: (any RemoteWriting)? = nil,
+        reader: (any RemoteReading)? = nil,
+        modelContext: ModelContext? = nil,
+        pullPageLimit: Int = 500
     ) {
         self.currentUID = currentUID
         self.queueURL = queueURL
         self.remote = remote
+        self.reader = reader
+        self.modelContext = modelContext
+        self.pullPageLimit = pullPageLimit
         self.queue = Self.loadQueue(at: queueURL)
         refreshStatusFromAuth()
     }
 
-    /// Production convenience: resolves the uid from FirebaseAuth, writes the
-    /// queue to the standard Application Support location, and pushes via
-    /// FirestoreRemoteWriter against the default Firestore instance.
-    convenience init() {
+    /// Production convenience: wires FirebaseAuth, the standard queue file,
+    /// and Firestore reader/writer instances. The caller hands in the
+    /// SwiftData `mainContext` so pull can reconcile cloud → local.
+    convenience init(modelContext: ModelContext) {
         self.init(
             currentUID: { Auth.auth().currentUser?.uid },
             queueURL: Self.defaultQueueURL(),
-            remote: FirestoreRemoteWriter()
+            remote: FirestoreRemoteWriter(),
+            reader: FirestoreRemoteReader(),
+            modelContext: modelContext
         )
     }
 
@@ -85,6 +98,10 @@ final class FirestoreSyncService: SyncServicing {
         refreshStatusFromAuth()
         guard case .idle = status else { return }
         await runPush()
+        // Bail before pull if push surfaced an error — pulling on top of a
+        // failed push could clobber the local change the user just made.
+        if case .failed = status { return }
+        await runPull()
     }
 
     // MARK: - Push
@@ -174,6 +191,72 @@ final class FirestoreSyncService: SyncServicing {
         var dict = try encoder.encode(value)
         dict["ownerUid"] = ownerUid
         return dict
+    }
+
+    // MARK: - Pull
+
+    /// Pull pass. Pulls each collection scoped to `ownerUid`, then reconciles
+    /// against local SwiftData using last-write-wins on `updatedAt`. Tombstones
+    /// (`isDeleted == true`) delete the matching local row.
+    ///
+    /// Project pull lands in Step 4 / commit-1. Transaction / TimeLog /
+    /// CategoryItem / Milestone pulls land in follow-up commits — the
+    /// `if let reader, let context` guards mean nothing breaks if a kind's
+    /// upsert hasn't been written yet.
+    ///
+    /// Conflict policy: pure LWW, no merge, no user prompt. MVP-acceptable
+    /// per Files/Phase_4_Plan_2026-05-26.md.
+    private func runPull() async {
+        guard let uid = currentUID(),
+              let reader = reader,
+              let context = modelContext
+        else { return }
+
+        status = .pulling
+
+        do {
+            try await pullProjects(uid: uid, reader: reader, context: context)
+            try context.save()
+            status = .idle
+            lastSyncedAt = Date()
+        } catch {
+            status = .failed(error.localizedDescription)
+        }
+    }
+
+    private func pullProjects(uid: String, reader: any RemoteReading, context: ModelContext) async throws {
+        let docs = try await reader.fetchProjects(ownerUid: uid, limit: pullPageLimit)
+        for doc in docs {
+            try upsertProject(doc, context: context)
+        }
+    }
+
+    /// Apply one ProjectDocument to local SwiftData. Idempotent.
+    /// `internal` so pull tests can drive it directly without a mock reader.
+    func upsertProject(_ doc: ProjectDocument, context: ModelContext) throws {
+        guard let uuid = UUID(uuidString: doc.id) else { return }
+
+        // Small dataset (MVP indie users have <100 projects each). A full
+        // fetch + .first(where:) avoids #Predicate macro pitfalls around
+        // captured values and works fine for the launch window.
+        let all = try context.fetch(FetchDescriptor<Project>())
+        let existing = all.first { $0.id == uuid }
+
+        if doc.isDeleted {
+            if let existing { context.delete(existing) }
+            return
+        }
+
+        if let existing {
+            // LWW on updatedAt. Strictly greater so a same-timestamp pull is
+            // a no-op (avoids touching mainContext for nothing).
+            if doc.updatedAt > existing.updatedAt {
+                doc.apply(to: existing)
+            }
+        } else {
+            let new = doc.makeProject()
+            context.insert(new)
+        }
     }
 
     // MARK: - Status
