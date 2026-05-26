@@ -151,7 +151,11 @@ final class FirestoreSyncService: SyncServicing {
             let doc = try JSONDecoder.devcalSync.decode(TimeLogDocument.self, from: op.payload)
             let fields = try Self.flattenForFirestore(doc, ownerUid: ownerUid)
             return ("timeLogs", fields)
-        case .categoryItem, .milestone:
+        case .categoryItem:
+            let doc = try JSONDecoder.devcalSync.decode(CategoryItemDocument.self, from: op.payload)
+            let fields = try Self.flattenForFirestore(doc, ownerUid: ownerUid)
+            return ("categoryItems", fields)
+        case .milestone:
             // Each of these lands in its own follow-up commit per the Phase 4
             // plan. Until then the queue absorbs writes and the next commit
             // drains them.
