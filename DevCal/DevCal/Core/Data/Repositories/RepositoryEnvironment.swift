@@ -40,9 +40,11 @@ private struct TransactionUseCaseKey: EnvironmentKey {
 }
 
 private struct SyncServiceKey: EnvironmentKey {
-    /// Use `(any SyncServicing)?` so the env can carry either the no-op Phase 0
-    /// shell or the Phase 4 Firestore impl without changing every consumer.
-    static let defaultValue: (any SyncServicing)? = nil
+    /// Concrete `FirestoreSyncService` so SwiftUI can observe its `@Observable`
+    /// properties (status / lastSyncedAt) from CloudSyncSettingsView. Other
+    /// consumers (e.g. SubscriptionScheduler) only need the `SyncServicing`
+    /// protocol surface, which the concrete class satisfies via upcast.
+    static let defaultValue: FirestoreSyncService? = nil
 }
 
 extension EnvironmentValues {
@@ -70,7 +72,7 @@ extension EnvironmentValues {
         get { self[TransactionUseCaseKey.self] }
         set { self[TransactionUseCaseKey.self] = newValue }
     }
-    var syncService: (any SyncServicing)? {
+    var syncService: FirestoreSyncService? {
         get { self[SyncServiceKey.self] }
         set { self[SyncServiceKey.self] = newValue }
     }

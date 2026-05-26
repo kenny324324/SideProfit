@@ -28,6 +28,7 @@ import FirebaseAuth
 import FirebaseFirestore
 
 @MainActor
+@Observable
 final class FirestoreSyncService: SyncServicing {
 
     // MARK: - Public state

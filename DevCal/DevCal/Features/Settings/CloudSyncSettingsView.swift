@@ -3,9 +3,9 @@
 //  DevCal
 //
 //  Cloud sync preferences subpage. Per the product plan, cloud sync is a
-//  Free-tier feature backed by Firebase. Firebase isn't integrated yet, so
-//  this page wires the user-facing toggles and copy now; the actual sync
-//  trigger / status fields will be hooked up alongside the SDK rollout.
+//  Free-tier feature backed by Firebase. The "立即同步" row drives the real
+//  FirestoreSyncService.syncNow() — the auto-sync toggle is still a local
+//  preference that Phase 4 doesn't read yet (Step 5 + Step 6 enforce it).
 //
 
 import SwiftUI
@@ -14,9 +14,11 @@ import PhosphorSymbols
 struct CloudSyncSettingsView: View {
     @AppStorage("cloudSyncEnabled") private var cloudSyncEnabled: Bool = true
     @AppStorage("cloudSyncWifiOnly") private var cloudSyncWifiOnly: Bool = false
-    @AppStorage("cloudSyncLastAt") private var cloudSyncLastAt: Double = 0
+
+    @Environment(\.syncService) private var syncService
 
     @State private var isSyncing: Bool = false
+    @State private var lastErrorMessage: String?
 
     var body: some View {
         ScrollView {
@@ -38,6 +40,10 @@ struct CloudSyncSettingsView: View {
                     lastSyncRow
                     hairline
                     syncNowRow
+                    if let lastErrorMessage {
+                        hairline
+                        errorRow(lastErrorMessage)
+                    }
                 }
 
                 footer
@@ -95,13 +101,17 @@ struct CloudSyncSettingsView: View {
                 Image(ph: "cloud-arrow-up", weight: .regular)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 22, height: 22)
-                    .foregroundStyle(Theme.brand)
+                    .foregroundStyle(syncDisabled ? Theme.primaryText.opacity(0.35) : Theme.brand)
                 Text("立即同步")
                     .appFont(.body, weight: .medium)
-                    .foregroundStyle(Theme.brand)
+                    .foregroundStyle(syncDisabled ? Theme.primaryText.opacity(0.35) : Theme.brand)
                 Spacer(minLength: 8)
                 if isSyncing {
                     ProgressView().controlSize(.small)
+                } else if syncDisabled {
+                    Text("請先登入")
+                        .appFont(.subheadline)
+                        .foregroundStyle(Theme.primaryText.opacity(0.4))
                 }
             }
             .padding(.horizontal, 20)
@@ -109,7 +119,27 @@ struct CloudSyncSettingsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isSyncing)
+        .disabled(isSyncing || syncDisabled)
+    }
+
+    private func errorRow(_ message: String) -> some View {
+        HStack(spacing: 12) {
+            Image(ph: "warning", weight: .regular)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 22, height: 22)
+                .foregroundStyle(Theme.expense)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("同步失敗")
+                    .appFont(.subheadline, weight: .medium)
+                    .foregroundStyle(Theme.expense)
+                Text(message)
+                    .appFont(.caption)
+                    .foregroundStyle(Theme.primaryText.opacity(0.6))
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Pieces
@@ -131,9 +161,13 @@ struct CloudSyncSettingsView: View {
             .padding(.leading, 54)
     }
 
+    private var syncDisabled: Bool {
+        guard let syncService else { return true }
+        return syncService.status == .disabled
+    }
+
     private var lastSyncedText: String {
-        guard cloudSyncLastAt > 0 else { return "—" }
-        let date = Date(timeIntervalSince1970: cloudSyncLastAt)
+        guard let date = syncService?.lastSyncedAt else { return "—" }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
@@ -142,14 +176,19 @@ struct CloudSyncSettingsView: View {
     // MARK: - Actions
 
     private func triggerSync() {
-        // TODO(firebase): kick off a real Firestore sync once the SDK lands.
+        guard let syncService else { return }
         isSyncing = true
+        lastErrorMessage = nil
         Task {
-            try? await Task.sleep(for: .seconds(1))
-            await MainActor.run {
-                cloudSyncLastAt = Date().timeIntervalSince1970
-                isSyncing = false
+            do {
+                try await syncService.syncNow()
+                if case .failed(let message) = syncService.status {
+                    lastErrorMessage = message
+                }
+            } catch {
+                lastErrorMessage = error.localizedDescription
             }
+            isSyncing = false
         }
     }
 }
