@@ -19,7 +19,7 @@ import Charts
 import PhosphorSymbols
 
 struct ProjectDashboardView: View {
-    @Environment(\.modelContext) private var context
+    @Environment(\.projectRepository) private var projectRepository
     @Environment(\.dismiss) private var dismiss
     @Environment(Entitlements.self) private var entitlements
     @Environment(ExchangeRateService.self) private var fx
@@ -34,6 +34,8 @@ struct ProjectDashboardView: View {
     @State private var showPaywall = false
     @State private var showDeleteConfirm = false
     @State private var bannerHeight: CGFloat = 0
+    @State private var deleteError: String? = nil
+    @State private var showDeleteErrorAlert = false
 
     var body: some View {
         ScrollView {
@@ -140,19 +142,28 @@ struct ProjectDashboardView: View {
         ) {
             Button("取消", role: .cancel) { }
             Button("刪除", role: .destructive) {
-                deleteProject()
+                Task { await deleteProject() }
             }
         } message: {
             Text("這會永久刪除此專案及其所有支出、收入與時間紀錄,無法復原。")
         }
+        .systemAlert("Delete failed", isPresented: $showDeleteErrorAlert) {
+            Button("OK", role: .cancel) { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
+        }
     }
 
-    private func deleteProject() {
-        withAnimation {
-            context.delete(project)
-            try? context.save()
+    @MainActor
+    private func deleteProject() async {
+        guard let repo = projectRepository else { return }
+        do {
+            try await repo.deleteProject(project)
+            dismiss()
+        } catch {
+            deleteError = error.localizedDescription
+            showDeleteErrorAlert = true
         }
-        dismiss()
     }
 
     // MARK: - FX stale banner

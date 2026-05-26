@@ -14,7 +14,7 @@ import SwiftData
 import PhosphorSymbols
 
 struct CategoryItemEditView: View {
-    @Environment(\.modelContext) private var context
+    @Environment(\.categoryItemRepository) private var categoryItemRepository
     @Environment(\.dismiss) private var dismiss
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
 
@@ -33,6 +33,8 @@ struct CategoryItemEditView: View {
     @State private var fallbackIconName: String? = nil
     @State private var iconColorHex: String? = nil
     @State private var showIconPicker = false
+    @State private var saveError: String? = nil
+    @State private var showErrorAlert = false
 
     var body: some View {
         Form {
@@ -85,7 +87,7 @@ struct CategoryItemEditView: View {
             if editing != nil {
                 Section {
                     Button(role: .destructive) {
-                        deleteItem()
+                        Task { await runDelete() }
                     } label: {
                         Label("刪除項目", phImage: "trash")
                     }
@@ -109,6 +111,11 @@ struct CategoryItemEditView: View {
             }
             .interactiveDismissDisabled()
         }
+        .systemAlert("Save failed", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
+        }
         .onAppear(perform: loadIfEditing)
     }
 
@@ -127,9 +134,11 @@ struct CategoryItemEditView: View {
             }
         }
         ToolbarItem(placement: .confirmationAction) {
-            Button("儲存") { save() }
-                .confirmActionStyle()
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+            Button("儲存") {
+                Task { await runSave() }
+            }
+            .confirmActionStyle()
+            .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
         }
     }
 
@@ -201,27 +210,13 @@ struct CategoryItemEditView: View {
         iconColorHex = editing.iconColorHex
     }
 
-    private func save() {
+    @MainActor
+    private func runSave() async {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        guard let repo = categoryItemRepository else { return }
 
-        if let editing {
-            editing.name = trimmed
-            editing.totalAmount = defaultAmount
-            editing.originalCurrencyCode = originalCurrencyCode
-            editing.billingType = billingType
-            editing.nextDueDate = billingType.isRecurring ? nextDueDate : nil
-            editing.brandIconKey = brandIconKey
-            editing.fallbackIconName = fallbackIconName
-            editing.iconColorHex = iconColorHex
-            editing.updatedAt = Date()
-            try? context.save()
-            onSaved?(editing)
-            dismiss()
-            return
-        }
-
-        let item = CategoryItem(
+        let input = CategoryItemRepository.CategoryItemInput(
             name: trimmed,
             category: category,
             totalAmount: defaultAmount,
@@ -233,18 +228,35 @@ struct CategoryItemEditView: View {
             nextDueDate: billingType.isRecurring ? nextDueDate : nil,
             isActive: true,
             isShared: false,
+            splitMode: .equal,
+            weightsByProjectId: nil,
             projects: [project]
         )
-        context.insert(item)
-        try? context.save()
-        onSaved?(item)
-        dismiss()
+
+        do {
+            if let editing {
+                try await repo.updateCategoryItem(editing, input)
+                onSaved?(editing)
+            } else {
+                let item = try await repo.createCategoryItem(input)
+                onSaved?(item)
+            }
+            dismiss()
+        } catch {
+            saveError = error.localizedDescription
+            showErrorAlert = true
+        }
     }
 
-    private func deleteItem() {
-        guard let editing else { return }
-        context.delete(editing)
-        try? context.save()
-        dismiss()
+    @MainActor
+    private func runDelete() async {
+        guard let editing, let repo = categoryItemRepository else { return }
+        do {
+            try await repo.deleteCategoryItem(editing)
+            dismiss()
+        } catch {
+            saveError = error.localizedDescription
+            showErrorAlert = true
+        }
     }
 }
