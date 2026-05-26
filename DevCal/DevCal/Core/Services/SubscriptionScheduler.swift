@@ -24,15 +24,24 @@ import Foundation
 import SwiftData
 
 enum SubscriptionScheduler {
+    /// Calendar pinned to UTC Gregorian for deterministic-id day math. Two
+    /// devices in different regions firing the scheduler for the same due
+    /// date must converge on the same id, otherwise Firestore dedupes
+    /// nothing and the same recurring charge ends up duplicated remotely.
+    private static let utcCalendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        return cal
+    }()
+
     /// Format the deterministic Transaction id stamped on every
-    /// scheduler-generated row. Pinned to the calendar day in the *current*
-    /// timezone so two devices in the same region converge on the same id.
-    /// The sync layer can rely on this string when deduping remote pushes.
+    /// scheduler-generated row. Day boundary is computed in UTC so devices
+    /// across timezones produce the same id for the same due date.
     static func deterministicTransactionID(
         categoryItemID: UUID,
         projectID: UUID,
         date: Date,
-        calendar: Calendar = .current
+        calendar: Calendar = utcCalendar
     ) -> String {
         let day = calendar.startOfDay(for: date)
         let components = calendar.dateComponents([.year, .month, .day], from: day)
@@ -187,8 +196,7 @@ enum SubscriptionScheduler {
                 deterministicID: deterministicTransactionID(
                     categoryItemID: item.id,
                     projectID: project.id,
-                    date: date,
-                    calendar: calendar
+                    date: date
                 )
             )
             context.insert(txn)

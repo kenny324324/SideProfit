@@ -238,4 +238,39 @@ struct SubscriptionSchedulerTests {
         #expect(id == id2)
     }
 
+    @Test("Default deterministic id is timezone-stable across devices")
+    func deterministicIDCrossTimezoneStable() {
+        let categoryId = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let projectId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+
+        // 2023-11-15 04:00 UTC — that's:
+        //   - 2023-11-15 12:00 in Asia/Taipei
+        //   - 2023-11-14 20:00 in America/Los_Angeles
+        // With Calendar.current as the default an LA device produced
+        // `_20231114` while a Taipei device produced `_20231115`; Firestore
+        // dedupe would treat the same recurring charge as two separate docs.
+        let dueDate = Date(timeIntervalSince1970: 1_700_020_800)
+
+        let idDefault = SubscriptionScheduler.deterministicTransactionID(
+            categoryItemID: categoryId,
+            projectID: projectId,
+            date: dueDate
+        )
+        #expect(idDefault.hasSuffix("_20231115"))
+
+        // Regression guard: an explicit LA calendar must still produce the
+        // previous-day suffix. If anyone reverts the default to .current the
+        // first assertion above starts failing on LA hosts and CI.
+        var la = Calendar(identifier: .gregorian)
+        la.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        let idLA = SubscriptionScheduler.deterministicTransactionID(
+            categoryItemID: categoryId,
+            projectID: projectId,
+            date: dueDate,
+            calendar: la
+        )
+        #expect(idLA.hasSuffix("_20231114"))
+        #expect(idDefault != idLA)
+    }
+
 }
