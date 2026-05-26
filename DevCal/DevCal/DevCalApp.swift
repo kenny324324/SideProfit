@@ -24,10 +24,10 @@ struct DevCalApp: App {
     @State private var fx = ExchangeRateService.shared
     @State private var appReviewPrompter = AppReviewPrompter()
     @State private var showSplash = true
-    // Data layer: a NoopSyncService stands in for Phase-4 Firestore so views
-    // can already depend on the repository / sync API. Held as a single
-    // instance so background work and the UI agree on `status`.
-    @State private var syncService: NoopSyncService = NoopSyncService()
+    // Data layer: FirestoreSyncService owns the on-disk push queue + (in
+    // Step 3+) drives push/pull. Held as a single instance so background
+    // work and the UI agree on `status`.
+    @State private var syncService: FirestoreSyncService
     @State private var projectRepository: ProjectRepository
     @State private var transactionRepository: TransactionRepository
     @State private var timeLogRepository: TimeLogRepository
@@ -77,7 +77,7 @@ struct DevCalApp: App {
         // App.init runs on the main actor (SwiftUI App is @MainActor), so
         // mainContext / repository ctors are safe to call synchronously here.
         let context = resolvedContainer.mainContext
-        let initialSync = NoopSyncService()
+        let initialSync = FirestoreSyncService()
         let projectRepo = ProjectRepository(context: context, sync: initialSync)
         let txnRepo = TransactionRepository(context: context, sync: initialSync)
         let timeLogRepo = TimeLogRepository(context: context, sync: initialSync)
@@ -189,6 +189,11 @@ struct DevCalApp: App {
         }
         .onChange(of: latinMode) { _, _ in Typography.applyUIKitAppearance() }
         .onChange(of: cjkMode) { _, _ in Typography.applyUIKitAppearance() }
+        .onChange(of: auth.account?.id) { _, _ in
+            // Sync engine derives `.disabled` / `.idle` from auth, so any
+            // sign-in or sign-out has to feed that state machine.
+            syncService.refreshStatusFromAuth()
+        }
     }
 
     private var colorScheme: ColorScheme? {
