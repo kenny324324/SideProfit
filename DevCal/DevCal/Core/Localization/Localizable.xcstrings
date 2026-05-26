@@ -2970,7 +2970,7 @@
         }
       }
     },
-    "DevCal Pro" : {
+    "SideProfit Pro" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -2992,7 +2992,7 @@
         }
       }
     },
-    "DevCal 沒有通知權限,提醒將無法送出。" : {
+    "SideProfit 沒有通知權限,提醒將無法送出。" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {

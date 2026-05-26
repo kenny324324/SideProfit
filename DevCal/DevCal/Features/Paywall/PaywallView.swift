@@ -83,7 +83,7 @@ struct PaywallView: View {
                 .frame(width: 80, height: 80)
                 .foregroundStyle(Theme.brand)
             VStack(spacing: 6) {
-                Text("DevCal Pro")
+                Text("SideProfit Pro")
                     .appFont(size: 32, weight: .bold)
                     .foregroundStyle(Theme.primaryText)
                 Text("解鎖無限專案、時間成本追蹤與進階分析")

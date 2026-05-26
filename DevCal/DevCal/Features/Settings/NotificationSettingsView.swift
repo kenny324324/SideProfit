@@ -75,7 +75,7 @@ struct NotificationSettingsView: View {
                 }
             }
         } message: {
-            Text("DevCal 沒有通知權限,提醒將無法送出。")
+            Text("SideProfit 沒有通知權限,提醒將無法送出。")
         }
     }
 
