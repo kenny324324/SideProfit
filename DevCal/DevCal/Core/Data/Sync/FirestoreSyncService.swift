@@ -94,9 +94,10 @@ final class FirestoreSyncService: SyncServicing {
     /// acks on success. The first remote failure flips `status` to `.failed`
     /// and stops the pass; subsequent retries pick up where this one left off.
     ///
-    /// Ops whose `kind` has not yet been wired (Step 3 lands `.project`; the
-    /// others arrive in follow-up commits) are skipped without acking — they
-    /// stay queued until their commit teaches `encodePush` how to handle them.
+    /// Ops whose `kind` doesn't yet map to a collection are skipped without
+    /// acking so no data is lost — but with all five entity kinds wired
+    /// (Project / Transaction / TimeLog / CategoryItem / Milestone) this is a
+    /// no-op path until a future schema migration introduces a new kind.
     private func runPush() async {
         guard let uid = currentUID(), let remote = remote else { return }
         let snapshot = queue
@@ -156,10 +157,9 @@ final class FirestoreSyncService: SyncServicing {
             let fields = try Self.flattenForFirestore(doc, ownerUid: ownerUid)
             return ("categoryItems", fields)
         case .milestone:
-            // Each of these lands in its own follow-up commit per the Phase 4
-            // plan. Until then the queue absorbs writes and the next commit
-            // drains them.
-            return nil
+            let doc = try JSONDecoder.devcalSync.decode(MilestoneDocument.self, from: op.payload)
+            let fields = try Self.flattenForFirestore(doc, ownerUid: ownerUid)
+            return ("milestones", fields)
         }
     }
 
