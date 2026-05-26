@@ -201,6 +201,16 @@ struct DevCalApp: App {
             // Sync engine derives `.disabled` / `.idle` from auth, so any
             // sign-in or sign-out has to feed that state machine.
             syncService.refreshStatusFromAuth()
+            // Re-trigger the splash overlay so sign-in / sign-out / delete-
+            // account hand off through the same brand-mark fade the cold
+            // launch uses, instead of a hard cut. The splash `.task(id:)`
+            // closure auto-dismisses after `minDisplayDuration`. Guard so
+            // a mid-splash auth flip doesn't restart the timer awkwardly.
+            if !showSplash {
+                withAnimation(.easeInOut(duration: SplashDefaults.fadeOutDuration)) {
+                    showSplash = true
+                }
+            }
         }
     }
 
