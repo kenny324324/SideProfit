@@ -23,6 +23,7 @@ import UIKit
 import AuthenticationServices
 import CryptoKit
 import FirebaseAuth
+import FirebaseFirestore
 
 @MainActor
 @Observable
@@ -132,26 +133,51 @@ final class AuthService {
         try Auth.auth().signOut()
     }
 
-    // MARK: - Account deletion (Phase 1: local + Auth only)
+    // MARK: - Account deletion
 
-    /// Deletes the Firebase Auth user, then walks every local record through
-    /// its repository so Phase 4 sync sees an `isDeleted = true` tombstone for
-    /// each one. Cloud Function cascade for Firestore is Phase 4.
+    /// Three-step delete:
+    /// 1. Drop a `users/{uid}/deletionRequests/{requestId}` doc in Firestore.
+    ///    The `cascadeDeleteUser` Cloud Function fires off this write and
+    ///    server-side-cascades every doc the user owns — required by App
+    ///    Store guideline 5.1.1(v) since the client can't write to Firestore
+    ///    once Auth is deleted.
+    /// 2. Delete the Firebase Auth user.
+    /// 3. Walk every local record through its repository so the local store
+    ///    is wiped (and Phase 4 sync sees a tombstone for each one, in case
+    ///    the device hadn't yet synced before the user pressed delete).
     ///
-    /// Auth deletion runs first: if Firebase rejects it (commonly because the
-    /// user needs to re-authenticate), the local SwiftData is never touched
-    /// and the user can retry without losing data.
+    /// The deletionRequest write runs *first* while the user is still
+    /// authenticated (security rules require `request.auth.uid == uid` on
+    /// that path). If it throws, the rest of the flow is skipped and the
+    /// user can retry — their data is untouched.
     func deleteAccount(localPurge: AccountPurgeContext) async throws {
         if let user = Auth.auth().currentUser {
+            try await Self.enqueueRemoteDeletion(for: user.uid)
             try await user.delete()
         }
         try await Self.purgeLocalData(localPurge)
     }
 
+    /// Write the deletionRequest doc that triggers the Cloud Function
+    /// cascade. The doc body just records the request timestamp so logs
+    /// can correlate; the function reads `uid` from the doc path.
+    private static func enqueueRemoteDeletion(for uid: String) async throws {
+        let requestId = UUID().uuidString
+        try await Firestore.firestore()
+            .collection("users")
+            .document(uid)
+            .collection("deletionRequests")
+            .document(requestId)
+            .setData([
+                "requestedAt": FieldValue.serverTimestamp(),
+                "ownerUid": uid
+            ])
+    }
+
     /// Static so tests can exercise the tombstone pipeline without
     /// constructing an `AuthService` (which would require `FirebaseApp` to be
     /// configured). The instance method `deleteAccount(localPurge:)` calls
-    /// this after the Firebase Auth delete succeeds.
+    /// this after the deletionRequest doc + Firebase Auth delete succeed.
     static func purgeLocalData(_ ctx: AccountPurgeContext) async throws {
         // Leaf entities first so each tombstone is enqueued with the same
         // parent reference its document carried at write time, then category
