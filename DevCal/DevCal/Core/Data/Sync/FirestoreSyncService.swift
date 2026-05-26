@@ -220,6 +220,7 @@ final class FirestoreSyncService: SyncServicing {
             try await pullProjects(uid: uid, reader: reader, context: context)
             try await pullTransactions(uid: uid, reader: reader, context: context)
             try await pullTimeLogs(uid: uid, reader: reader, context: context)
+            try await pullCategoryItems(uid: uid, reader: reader, context: context)
             try context.save()
             status = .idle
             lastSyncedAt = Date()
@@ -246,6 +247,13 @@ final class FirestoreSyncService: SyncServicing {
         let docs = try await reader.fetchTimeLogs(ownerUid: uid, limit: pullPageLimit)
         for doc in docs {
             try upsertTimeLog(doc, context: context)
+        }
+    }
+
+    private func pullCategoryItems(uid: String, reader: any RemoteReading, context: ModelContext) async throws {
+        let docs = try await reader.fetchCategoryItems(ownerUid: uid, limit: pullPageLimit)
+        for doc in docs {
+            try upsertCategoryItem(doc, context: context)
         }
     }
 
@@ -330,6 +338,47 @@ final class FirestoreSyncService: SyncServicing {
             let new = doc.makeTimeLog()
             new.project = project
             context.insert(new)
+        }
+    }
+
+    /// Apply one CategoryItemDocument to local SwiftData. Re-resolves the
+    /// many-to-many `projects` array from `projectIds` so a remote allocation
+    /// change (added / removed project) lands on the local row.
+    /// `internal` so pull tests can drive it directly without a mock reader.
+    func upsertCategoryItem(_ doc: CategoryItemDocument, context: ModelContext) throws {
+        guard let uuid = UUID(uuidString: doc.id) else { return }
+
+        let all = try context.fetch(FetchDescriptor<CategoryItem>())
+        let existing = all.first { $0.id == uuid }
+
+        if doc.isDeleted {
+            if let existing { context.delete(existing) }
+            return
+        }
+
+        let projects = try resolveProjects(byIds: doc.projectIds, context: context)
+
+        if let existing {
+            if doc.updatedAt > existing.updatedAt {
+                doc.apply(to: existing)
+                existing.projects = projects
+            }
+        } else {
+            let new = doc.makeCategoryItem()
+            new.projects = projects
+            context.insert(new)
+        }
+    }
+
+    /// Resolve an array of project UUID strings to live `Project` rows.
+    /// Drops ids that don't have a local Project yet (orphaned references).
+    private func resolveProjects(byIds projectIdStrings: [String], context: ModelContext) throws -> [Project] {
+        guard !projectIdStrings.isEmpty else { return [] }
+        let all = try context.fetch(FetchDescriptor<Project>())
+        let byId = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
+        return projectIdStrings.compactMap { idString in
+            guard let uuid = UUID(uuidString: idString) else { return nil }
+            return byId[uuid]
         }
     }
 
