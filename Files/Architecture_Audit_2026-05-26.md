@@ -370,12 +370,14 @@ DevCal/DevCal/Core/
       SyncStatus.swift
 ```
 
-### Phase 1: Auth
+### Phase 1: Auth — **PLANNED 2026-05-26 PM** (see [Phase_1_Plan_2026-05-26.md](Phase_1_Plan_2026-05-26.md))
 
-1. Add Firebase SDK packages.
+1. Add Firebase SDK packages. *Manual prereq Kenny does — Phase 1 needs only `FirebaseAuth`.*
 2. Add `FirebaseApp.configure()` in `DevCalApp.init()`.
-3. Convert `AuthService` from mock storage to Firebase listener-backed state.
-4. Keep the public UI-facing API stable so `RootView`, `AuthView`, and `SettingsView` do not need major rewrites.
+3. Convert `AuthService` from mock storage to Firebase listener-backed state. *Use the facade approach (keep concrete `AuthService`, swap internals).*
+4. Keep the public UI-facing API stable so `RootView`, `AuthView`, and `SettingsView` do not need major rewrites. *Ripple: `signIn*` methods become `async throws`; views adopt the same `systemAlert` error pattern Phase 0 introduced.*
+
+See Phase 1 plan for the open decisions (anonymous-vs-mandatory, email-link-vs-password, account-deletion-scope) and the file-by-file edit list.
 
 ### Phase 2: DTOs and Remote Schema
 
