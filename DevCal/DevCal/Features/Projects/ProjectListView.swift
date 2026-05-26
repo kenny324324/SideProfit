@@ -218,18 +218,12 @@ struct ProjectListView: View {
     }
 
     private var emptyState: some View {
+        // No CTA button — the toolbar `+` already drives "add first project",
+        // and a second CTA in the empty state just clutters the screen.
         ContentUnavailableView {
             Label("No projects yet", phImage: "stack")
         } description: {
             Text("Create your first project to start tracking revenue, expenses, and break-even progress.")
-        } actions: {
-            Button {
-                showAddProject = true
-            } label: {
-                Text("Create your first project")
-                    .padding(.horizontal, 24)
-            }
-            .buttonStyle(.swPrimary)
         }
     }
 
