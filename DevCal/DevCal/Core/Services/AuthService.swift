@@ -68,7 +68,6 @@ final class AuthService {
     private(set) var account: AccountSummary?
     var isSignedIn: Bool { account != nil }
 
-    private var authStateHandle: AuthStateDidChangeListenerHandle?
     /// Strong-held bridge between `ASAuthorizationController`'s delegate
     /// callbacks and the `async throws` surface we expose. Re-assigned per
     /// sign-in attempt so consecutive attempts can't clobber each other.
@@ -81,19 +80,19 @@ final class AuthService {
         if let user = Auth.auth().currentUser {
             account = AccountSummary(from: user)
         }
-        authStateHandle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+        // No `removeStateDidChangeListener` needed: AuthService lives for the
+        // app's lifetime (held as `@State` by DevCalApp), so the listener only
+        // dies with the process. The `[weak self]` capture below means any
+        // leftover firing during teardown no-ops cleanly — and accessing a
+        // @MainActor-isolated handle from a nonisolated deinit isn't allowed
+        // under Swift 6 strict concurrency anyway.
+        _ = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             // Firebase fires the listener on the main thread, but the closure
             // itself isn't @MainActor-annotated. Hop explicitly so @Observable
             // mutations stay isolated.
             Task { @MainActor in
                 self?.account = user.map(AccountSummary.init(from:))
             }
-        }
-    }
-
-    deinit {
-        if let handle = authStateHandle {
-            Auth.auth().removeStateDidChangeListener(handle)
         }
     }
 

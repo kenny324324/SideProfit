@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		31CD932E2FC5729800F64F6F /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 31CD932D2FC5729800F64F6F /* FirebaseAuth */; };
 		7A1B0C052FB31900006BD01E /* PhosphorSymbols in Frameworks */ = {isa = PBXBuildFile; productRef = 7A1B0C042FB31900006BD01E /* PhosphorSymbols */; };
 /* End PBXBuildFile section */
 
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A1B0C052FB31900006BD01E /* PhosphorSymbols in Frameworks */,
+				31CD932E2FC5729800F64F6F /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			name = DevCal;
 			packageProductDependencies = (
 				7A1B0C042FB31900006BD01E /* PhosphorSymbols */,
+				31CD932D2FC5729800F64F6F /* FirebaseAuth */,
 			);
 			productName = DevCal;
 			productReference = 3124D5CB2FB3180F006BD01E /* DevCal.app */;
@@ -206,6 +209,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7A1B0C062FB31900006BD01E /* XCLocalSwiftPackageReference "../../../../../Developer/PhosphorSymbols" */,
+				31CD932C2FC5729800F64F6F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3124D5CC2FB3180F006BD01E /* Products */;
@@ -407,6 +411,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = appicon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DevCal/DevCal.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5353WH6FVX;
@@ -441,6 +446,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = appicon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DevCal/DevCal.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5353WH6FVX;
@@ -602,7 +608,23 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		31CD932C2FC5729800F64F6F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.13.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		31CD932D2FC5729800F64F6F /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 31CD932C2FC5729800F64F6F /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
 		7A1B0C042FB31900006BD01E /* PhosphorSymbols */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PhosphorSymbols;

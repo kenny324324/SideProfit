@@ -1,5 +1,7 @@
 # Phase 1 Manual Handoff — what Kenny still has to do
 
+**Status: DONE 2026-05-26.** All steps below executed; sign in / sign out / delete account verified on real device. Plus one mid-flight correction: Steps 5-6 (Apple Dev Portal Service ID + .p8 + Firebase Console OAuth code flow fields) were originally written into this doc but are **NOT required** for iOS-only Sign in with Apple — Firebase verifies the identity token by bundle ID for native iOS, the Service ID dance is web/Android-only. Skipped for MVP.
+
 Date: 2026-05-26
 Reads from: [Phase_1_Plan_2026-05-26.md](Phase_1_Plan_2026-05-26.md), [Firebase_Setup_Checklist.md](Firebase_Setup_Checklist.md)
 

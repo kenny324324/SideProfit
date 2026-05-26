@@ -3,15 +3,15 @@
 Project: SideProfit (DevCal Xcode target)
 Strategy: UI is built local-first using SwiftData. Firebase is integrated **after** the UI is approved. This file collects every Firebase-related setup item discovered while building the UI, so the integration pass is mechanical.
 
-Last updated: 2026-05-26 (Phase 1 in flight — Auth wiring complete in code; SDK install + console config still on Kenny)
+Last updated: 2026-05-26 (Phase 1 fully done — code + SDK + Console all live in `sideprofit-dev`, verified end-to-end on device)
 
 ## 0. Firebase Console — Project Bootstrap
 
-- [ ] Create Firebase project named `sideprofit` (or `sideprofit-prod` / `sideprofit-dev`).
-- [ ] Decide if separate dev + prod Firebase projects are needed. Recommended yes — separate Firestore data and Auth users prevent dev test data from polluting production analytics.
-- [ ] Register an iOS app inside the Firebase project with bundle identifier matching the Xcode target (currently `DevCal` placeholder; final bundle ID TBD).
-- [ ] Download `GoogleService-Info.plist` and add to the Xcode target. **Do not commit** if repo is public; add to `.gitignore` and use Xcode build configurations to swap dev/prod plists.
-- [ ] Add Firebase iOS SDK via Swift Package Manager — minimum products: `FirebaseAuth`, `FirebaseFirestore`, `FirebaseCrashlytics`, `FirebaseAnalytics`, `FirebaseRemoteConfig` (RC optional; useful for the "What's New" announcement skill).
+- [x] Create Firebase project named `sideprofit-dev`. *(Phase 1 — done 2026-05-26. Dev only; `sideprofit-prod` to be created before App Store submission.)*
+- [ ] Decide if separate dev + prod Firebase projects are needed. *(Phase 1: dev created; prod deferred until launch readiness.)*
+- [x] Register an iOS app with bundle ID `com.kenny.DevCal`. *(Phase 1 — done 2026-05-26. Final SideProfit bundle ID swap deferred until App Store Connect setup.)*
+- [x] Download `GoogleService-Info.plist` → `DevCal/DevCal/`. Already gitignored at `.gitignore:55`. *(Phase 1 — done 2026-05-26.)*
+- [x] Add Firebase iOS SDK via Swift Package Manager — **only `FirebaseAuth`** for Phase 1 (Firestore / Crashlytics / Analytics / RemoteConfig defer to their own phases). *(Phase 1 — done 2026-05-26: firebase-ios-sdk 12.13.0.)*
 - [x] In `DevCalApp.swift`, call `FirebaseApp.configure()` inside an `init()` block before any view is created. *(Phase 1 — done 2026-05-26; runs before `AuthService` is constructed.)*
 - [ ] Enable App Check (DeviceCheck on iOS) to block server abuse from non-app clients.
 
@@ -19,9 +19,9 @@ Last updated: 2026-05-26 (Phase 1 in flight — Auth wiring complete in code; SD
 
 Triggered by: the mock Auth screen in `Features/Auth/`.
 
-- [ ] Enable **Sign in with Apple** in Firebase Console → Authentication → Sign-in method. Requires:
-  - [ ] App's `Sign in with Apple` capability enabled in Xcode → Signing & Capabilities.
-  - [ ] Service ID + private key registered in Apple Developer Portal, then uploaded to Firebase.
+- [x] Enable **Sign in with Apple** in Firebase Console → Authentication → Sign-in method. *(Phase 1 — done 2026-05-26.)*
+  - [x] App's `Sign in with Apple` capability enabled in Xcode → Signing & Capabilities. *(Done — Xcode auto-created `DevCal.entitlements`, synced App ID capability in Apple Dev Portal, regenerated provisioning profile.)*
+  - [x] ~~Service ID + private key registered in Apple Developer Portal, then uploaded to Firebase.~~ *(NOT needed for iOS-only native flow. Firebase verifies the Apple identity token using the app's bundle ID, not the Service ID. Service ID + .p8 only required when adding web / Android Sign in with Apple later.)*
 - [x] ~~Enable **Google Sign-In**~~. *Out of scope per Phase 1 decision (Apple-only mandatory auth). Revisit post-MVP if a real need surfaces.*
 - [x] ~~Enable **Email link (passwordless)** or Email/Password~~. *Out of scope per Phase 1 decision (Apple-only). No email path in MVP.*
 - [x] Replace `MockAuthService` in `Core/Services/AuthService.swift`. *(Phase 1 — done 2026-05-26.)* Implemented as a **facade** (concrete `AuthService` keeps its public surface; internals now talk to FirebaseAuth) per Codex audit recommendation — faster than introducing a fresh `AuthServicing` protocol.

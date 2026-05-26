@@ -370,7 +370,7 @@ DevCal/DevCal/Core/
       SyncStatus.swift
 ```
 
-### Phase 1: Auth — **DONE (code-side) 2026-05-26** (see [Phase_1_Plan_2026-05-26.md](Phase_1_Plan_2026-05-26.md))
+### Phase 1: Auth — **DONE 2026-05-26** (see [Phase_1_Plan_2026-05-26.md](Phase_1_Plan_2026-05-26.md))
 
 1. ~~Add Firebase SDK packages~~. *Manual prereq Kenny does — Phase 1 needs only `FirebaseAuth`.* **Pending on Kenny.**
 2. `FirebaseApp.configure()` in `DevCalApp.init()`. **Done** — runs before `AuthService` is constructed via `_auth = State(initialValue: AuthService())`.
