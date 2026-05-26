@@ -125,19 +125,19 @@ extension Date {
 
         // Within 1 minute
         if interval < 60 {
-            return isEnglish ? "Just now" : "刚刚"
+            return isEnglish ? "Just now" : "剛剛"
         }
 
         // Within 1 hour
         if interval < 3600 {
             let minutes = Int(interval / 60)
-            return isEnglish ? "\(minutes) min ago" : "\(minutes)分钟前"
+            return isEnglish ? "\(minutes) min ago" : "\(minutes)分鐘前"
         }
 
         // Within 24 hours
         if interval < 86400 {
             let hours = Int(interval / 3600)
-            return isEnglish ? "\(hours) hour\(hours > 1 ? "s" : "") ago" : "\(hours)小时前"
+            return isEnglish ? "\(hours) hour\(hours > 1 ? "s" : "") ago" : "\(hours)小時前"
         }
 
         // Yesterday
