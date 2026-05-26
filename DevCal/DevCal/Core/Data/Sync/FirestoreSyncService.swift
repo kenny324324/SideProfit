@@ -219,6 +219,7 @@ final class FirestoreSyncService: SyncServicing {
             // can resolve their projectId relationship by the time they're applied.
             try await pullProjects(uid: uid, reader: reader, context: context)
             try await pullTransactions(uid: uid, reader: reader, context: context)
+            try await pullTimeLogs(uid: uid, reader: reader, context: context)
             try context.save()
             status = .idle
             lastSyncedAt = Date()
@@ -238,6 +239,13 @@ final class FirestoreSyncService: SyncServicing {
         let docs = try await reader.fetchTransactions(ownerUid: uid, limit: pullPageLimit)
         for doc in docs {
             try upsertTransaction(doc, context: context)
+        }
+    }
+
+    private func pullTimeLogs(uid: String, reader: any RemoteReading, context: ModelContext) async throws {
+        let docs = try await reader.fetchTimeLogs(ownerUid: uid, limit: pullPageLimit)
+        for doc in docs {
+            try upsertTimeLog(doc, context: context)
         }
     }
 
@@ -292,6 +300,34 @@ final class FirestoreSyncService: SyncServicing {
             }
         } else {
             let new = doc.makeTransaction()
+            new.project = project
+            context.insert(new)
+        }
+    }
+
+    /// Apply one TimeLogDocument to local SwiftData. Hydrates the `project`
+    /// relationship the same way transactions do.
+    /// `internal` so pull tests can drive it directly without a mock reader.
+    func upsertTimeLog(_ doc: TimeLogDocument, context: ModelContext) throws {
+        guard let uuid = UUID(uuidString: doc.id) else { return }
+
+        let all = try context.fetch(FetchDescriptor<TimeLog>())
+        let existing = all.first { $0.id == uuid }
+
+        if doc.isDeleted {
+            if let existing { context.delete(existing) }
+            return
+        }
+
+        let project = try resolveProject(byId: doc.projectId, context: context)
+
+        if let existing {
+            if doc.updatedAt > existing.updatedAt {
+                doc.apply(to: existing)
+                existing.project = project
+            }
+        } else {
+            let new = doc.makeTimeLog()
             new.project = project
             context.insert(new)
         }
