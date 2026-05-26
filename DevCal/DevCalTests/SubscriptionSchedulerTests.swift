@@ -3,8 +3,9 @@
 //  DevCalTests
 //
 //  Covers the recurring-billing generator: a single due fire, multi-period
-//  catch-up, same-day idempotency, and the new deterministic id stamping
-//  Phase 0 adds for cross-device convergence.
+//  catch-up, same-day idempotency, deterministic id stamping (with the
+//  Firestore-required UTC day boundary), and the sync enqueue contract that
+//  Phase 4 will rely on.
 //
 
 import Testing
@@ -29,6 +30,7 @@ struct SubscriptionSchedulerTests {
     }
 
     private func makeFX() -> ExchangeRateService { ExchangeRateService() }
+    private func makeSync() -> NoopSyncService { NoopSyncService() }
 
     private func fetchTransactions(_ context: ModelContext) throws -> [Transaction] {
         try context.fetch(FetchDescriptor<Transaction>())
@@ -40,6 +42,7 @@ struct SubscriptionSchedulerTests {
     func firesOneTransaction() throws {
         let context = try makeContext()
         let fx = makeFX()
+        let sync = makeSync()
         let project = Project(name: "A"); context.insert(project)
 
         let dueDate = Date(timeIntervalSince1970: 1_700_000_000)
@@ -53,8 +56,9 @@ struct SubscriptionSchedulerTests {
         )
         context.insert(item)
 
-        SubscriptionScheduler.runDueCheck(
+        try SubscriptionScheduler.runDueCheck(
             context: context,
+            sync: sync,
             displayCurrency: "TWD",
             fx: fx,
             now: dueDate.addingTimeInterval(60)
@@ -71,6 +75,7 @@ struct SubscriptionSchedulerTests {
     func catchesUpMultiplePeriods() throws {
         let context = try makeContext()
         let fx = makeFX()
+        let sync = makeSync()
         let project = Project(name: "A"); context.insert(project)
 
         // Start date is 3 months ago. The scheduler should fire 4 times to
@@ -91,8 +96,9 @@ struct SubscriptionSchedulerTests {
         )
         context.insert(item)
 
-        SubscriptionScheduler.runDueCheck(
+        try SubscriptionScheduler.runDueCheck(
             context: context,
+            sync: sync,
             displayCurrency: "TWD",
             fx: fx,
             now: now
@@ -107,6 +113,7 @@ struct SubscriptionSchedulerTests {
     func idempotentSameDay() throws {
         let context = try makeContext()
         let fx = makeFX()
+        let sync = makeSync()
         let project = Project(name: "A"); context.insert(project)
 
         let now = Date()
@@ -120,13 +127,13 @@ struct SubscriptionSchedulerTests {
         )
         context.insert(item)
 
-        SubscriptionScheduler.runDueCheck(context: context, displayCurrency: "TWD", fx: fx, now: now)
+        try SubscriptionScheduler.runDueCheck(context: context, sync: sync, displayCurrency: "TWD", fx: fx, now: now)
         let firstCount = try fetchTransactions(context).count
 
         // Force the item's nextDueDate back to today so the loop would WANT
         // to fire again, then verify the existing-row check stops it.
         item.nextDueDate = now
-        SubscriptionScheduler.runDueCheck(context: context, displayCurrency: "TWD", fx: fx, now: now)
+        try SubscriptionScheduler.runDueCheck(context: context, sync: sync, displayCurrency: "TWD", fx: fx, now: now)
         let secondCount = try fetchTransactions(context).count
 
         #expect(firstCount == secondCount)
@@ -136,6 +143,7 @@ struct SubscriptionSchedulerTests {
     func schedulerStampsBreakEven() throws {
         let context = try makeContext()
         let fx = makeFX()
+        let sync = makeSync()
         let project = Project(name: "A"); context.insert(project)
 
         // Pre-existing expenses so the next income tips it over.
@@ -162,8 +170,42 @@ struct SubscriptionSchedulerTests {
         context.insert(item)
 
         #expect(project.breakevenReachedAt == nil)
-        SubscriptionScheduler.runDueCheck(context: context, displayCurrency: "TWD", fx: fx, now: due)
+        try SubscriptionScheduler.runDueCheck(context: context, sync: sync, displayCurrency: "TWD", fx: fx, now: due)
         #expect(project.breakevenReachedAt != nil)
+    }
+
+    // MARK: - Sync enqueue contract
+
+    @Test("A fired due check enqueues transaction + categoryItem + project ops")
+    func enqueuesAcrossAllThreeEntityKinds() throws {
+        let context = try makeContext()
+        let fx = makeFX()
+        let sync = makeSync()
+        let project = Project(name: "A"); context.insert(project)
+
+        let due = Date(timeIntervalSince1970: 1_700_000_000)
+        let item = CategoryItem(
+            name: "AI tools",
+            category: .aiTools,
+            totalAmount: 200,
+            billingType: .monthly,
+            nextDueDate: due,
+            projects: [project]
+        )
+        context.insert(item)
+
+        try SubscriptionScheduler.runDueCheck(
+            context: context,
+            sync: sync,
+            displayCurrency: "TWD",
+            fx: fx,
+            now: due
+        )
+
+        let kinds = Set(sync.recentlyEnqueued.map(\.kind))
+        #expect(kinds.contains(.transaction))
+        #expect(kinds.contains(.categoryItem))
+        #expect(kinds.contains(.project))
     }
 
     // MARK: - Deterministic id
@@ -195,4 +237,5 @@ struct SubscriptionSchedulerTests {
         )
         #expect(id == id2)
     }
+
 }

@@ -15,6 +15,9 @@
 //  - Each generated Transaction snapshots the CategoryItem's `name`, brand /
 //    icon / color, and currency at fire time. Editing the CategoryItem later
 //    won't retroactively change past transactions — that's intentional.
+//  - Every mutation it commits — generated transaction, advanced category
+//    item, break-even stamp on a project — is enqueued through SyncServicing
+//    so Phase 4 sync mirrors recurring-billing state, not just user writes.
 //
 
 import Foundation
@@ -47,25 +50,36 @@ enum SubscriptionScheduler {
     @MainActor
     static func runDueCheck(
         context: ModelContext,
+        sync: SyncServicing,
         displayCurrency: String,
         fx: ExchangeRateService,
         now: Date = Date()
-    ) {
+    ) throws {
         let descriptor = FetchDescriptor<CategoryItem>(
             predicate: #Predicate<CategoryItem> { item in
                 item.isActive && item.nextDueDate != nil
             }
         )
-        guard let items = try? context.fetch(descriptor) else { return }
+        let items: [CategoryItem]
+        do {
+            items = try context.fetch(descriptor)
+        } catch {
+            throw DataLayerError.localSaveFailed(underlying: error)
+        }
 
-        var didMutate = false
+        var generatedTransactions: [Transaction] = []
+        var touchedItems: [UUID: CategoryItem] = [:]
+        var touchedProjects: [UUID: Project] = [:]
+        // Idempotency check inside the catch-up loop reads back what we just
+        // inserted in earlier iterations, so the local-day boundary still
+        // uses the device's calendar — that's a per-device concern.
         let cal = Calendar.current
 
         for item in items {
             guard item.billingType.isRecurring else { continue }
             // Catch-up loop: fire as many times as needed to reach today.
             while let due = item.nextDueDate, due <= now {
-                generateTransactions(
+                let result = generateTransactions(
                     for: item,
                     on: due,
                     context: context,
@@ -73,16 +87,48 @@ enum SubscriptionScheduler {
                     displayCurrency: displayCurrency,
                     fx: fx
                 )
+                generatedTransactions.append(contentsOf: result.transactions)
+                for project in result.touchedProjects {
+                    touchedProjects[project.id] = project
+                }
+                if !result.transactions.isEmpty {
+                    touchedItems[item.id] = item
+                }
                 item.advanceDueDate()
-                didMutate = true
                 // Safety: bail if the model never advances (e.g. corrupted enum).
                 if item.nextDueDate == due { break }
             }
         }
 
-        if didMutate {
-            try? context.save()
+        let didMutate = !generatedTransactions.isEmpty
+            || !touchedItems.isEmpty
+            || !touchedProjects.isEmpty
+        guard didMutate else { return }
+
+        do {
+            try context.save()
+        } catch {
+            throw DataLayerError.localSaveFailed(underlying: error)
         }
+
+        // Snapshot AFTER save so DTOs reflect the persisted state. Errors here
+        // mean the local write succeeded but the sync queue didn't get the
+        // mirror — caller still surfaces it, but Phase 4 sync can also recover
+        // by diffing against the remote on the next pass.
+        for txn in generatedTransactions {
+            try enqueueTransaction(txn, sync: sync)
+        }
+        for item in touchedItems.values {
+            try enqueueCategoryItem(item, sync: sync)
+        }
+        for project in touchedProjects.values {
+            try enqueueProject(project, sync: sync)
+        }
+    }
+
+    private struct FireResult {
+        let transactions: [Transaction]
+        let touchedProjects: [Project]
     }
 
     @MainActor
@@ -93,9 +139,9 @@ enum SubscriptionScheduler {
         calendar: Calendar,
         displayCurrency: String,
         fx: ExchangeRateService
-    ) {
+    ) -> FireResult {
         let allocation = item.projects ?? []
-        guard !allocation.isEmpty else { return }
+        guard !allocation.isEmpty else { return FireResult(transactions: [], touchedProjects: []) }
 
         let itemID = item.id
         let dayStart = calendar.startOfDay(for: date)
@@ -110,7 +156,7 @@ enum SubscriptionScheduler {
                     && txn.date < dayEnd
             }
         ))) ?? []
-        if !existing.isEmpty { return }
+        if !existing.isEmpty { return FireResult(transactions: [], touchedProjects: []) }
 
         let type = item.transactionType
         let category = item.category
@@ -120,6 +166,8 @@ enum SubscriptionScheduler {
         let fallbackIcon = item.fallbackIconName
         let colorHex = item.iconColorHex
 
+        var generated: [Transaction] = []
+        var touched: [Project] = []
         for project in allocation {
             let amount = item.amount(for: project)
             guard amount > 0 else { continue }
@@ -144,7 +192,50 @@ enum SubscriptionScheduler {
                 )
             )
             context.insert(txn)
+            let hadReachedBefore = project.breakevenReachedAt != nil
             project.stampBreakevenIfReached(in: displayCurrency, fx: fx, triggerDate: date)
+            generated.append(txn)
+            // A project counts as "touched" both when a generated transaction
+            // is attached to it AND when its break-even stamp flipped. Either
+            // way the remote document needs a new push.
+            if !touched.contains(where: { $0.id == project.id }) {
+                touched.append(project)
+            }
+            _ = hadReachedBefore
         }
+        return FireResult(transactions: generated, touchedProjects: touched)
+    }
+
+    @MainActor
+    private static func enqueueTransaction(_ transaction: Transaction, sync: SyncServicing) throws {
+        let doc = TransactionDocument(from: transaction)
+        let op = try PendingSyncOperation.make(
+            entityId: doc.id,
+            kind: .transaction,
+            document: doc
+        )
+        sync.enqueue(op)
+    }
+
+    @MainActor
+    private static func enqueueCategoryItem(_ item: CategoryItem, sync: SyncServicing) throws {
+        let doc = CategoryItemDocument(from: item)
+        let op = try PendingSyncOperation.make(
+            entityId: doc.id,
+            kind: .categoryItem,
+            document: doc
+        )
+        sync.enqueue(op)
+    }
+
+    @MainActor
+    private static func enqueueProject(_ project: Project, sync: SyncServicing) throws {
+        let doc = ProjectDocument(from: project)
+        let op = try PendingSyncOperation.make(
+            entityId: doc.id,
+            kind: .project,
+            document: doc
+        )
+        sync.enqueue(op)
     }
 }

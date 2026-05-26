@@ -31,8 +31,18 @@ private struct CategoryItemRepositoryKey: EnvironmentKey {
     static let defaultValue: CategoryItemRepository? = nil
 }
 
+private struct MilestoneRepositoryKey: EnvironmentKey {
+    static let defaultValue: MilestoneRepository? = nil
+}
+
 private struct TransactionUseCaseKey: EnvironmentKey {
     static let defaultValue: TransactionUseCase? = nil
+}
+
+private struct SyncServiceKey: EnvironmentKey {
+    /// Use `(any SyncServicing)?` so the env can carry either the no-op Phase 0
+    /// shell or the Phase 4 Firestore impl without changing every consumer.
+    static let defaultValue: (any SyncServicing)? = nil
 }
 
 extension EnvironmentValues {
@@ -52,8 +62,16 @@ extension EnvironmentValues {
         get { self[CategoryItemRepositoryKey.self] }
         set { self[CategoryItemRepositoryKey.self] = newValue }
     }
+    var milestoneRepository: MilestoneRepository? {
+        get { self[MilestoneRepositoryKey.self] }
+        set { self[MilestoneRepositoryKey.self] = newValue }
+    }
     var transactionUseCase: TransactionUseCase? {
         get { self[TransactionUseCaseKey.self] }
         set { self[TransactionUseCaseKey.self] = newValue }
+    }
+    var syncService: (any SyncServicing)? {
+        get { self[SyncServiceKey.self] }
+        set { self[SyncServiceKey.self] = newValue }
     }
 }

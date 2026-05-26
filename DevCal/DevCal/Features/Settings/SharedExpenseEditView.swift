@@ -15,6 +15,7 @@ import PhosphorSymbols
 struct SharedExpenseEditView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.categoryItemRepository) private var categoryItemRepository
+    @Environment(\.syncService) private var syncService
     @Environment(\.dismiss) private var dismiss
     @Environment(ExchangeRateService.self) private var fx
     @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
@@ -455,11 +456,14 @@ struct SharedExpenseEditView: View {
             // 立刻跑排程器:讓 startDate 為今天 / 過去日期的訂閱馬上產生交易,
             // 使用者按存的當下就能在專案內看到。預設只在 app 啟動 / scenePhase
             // .active 跑,這邊主動補一次。
-            SubscriptionScheduler.runDueCheck(
-                context: context,
-                displayCurrency: defaultCurrency,
-                fx: fx
-            )
+            if let syncService {
+                try SubscriptionScheduler.runDueCheck(
+                    context: context,
+                    sync: syncService,
+                    displayCurrency: defaultCurrency,
+                    fx: fx
+                )
+            }
             dismiss()
         } catch {
             present(error)

@@ -22,15 +22,18 @@ final class TransactionUseCase {
     let transactionRepository: TransactionRepository
     let categoryItemRepository: CategoryItemRepository
     private let context: ModelContext
+    private let sync: SyncServicing
 
     init(
         context: ModelContext,
         transactionRepository: TransactionRepository,
-        categoryItemRepository: CategoryItemRepository
+        categoryItemRepository: CategoryItemRepository,
+        sync: SyncServicing
     ) {
         self.context = context
         self.transactionRepository = transactionRepository
         self.categoryItemRepository = categoryItemRepository
+        self.sync = sync
     }
 
     // MARK: - Inputs / outputs
@@ -180,8 +183,9 @@ final class TransactionUseCase {
 
         let hadReachedBreakEven = input.project.breakevenReachedAt != nil
         _ = try await categoryItemRepository.createCategoryItem(categoryItemInput)
-        SubscriptionScheduler.runDueCheck(
+        try SubscriptionScheduler.runDueCheck(
             context: context,
+            sync: sync,
             displayCurrency: displayCurrency,
             fx: fx
         )

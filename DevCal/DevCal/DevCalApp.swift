@@ -32,6 +32,7 @@ struct DevCalApp: App {
     @State private var transactionRepository: TransactionRepository
     @State private var timeLogRepository: TimeLogRepository
     @State private var categoryItemRepository: CategoryItemRepository
+    @State private var milestoneRepository: MilestoneRepository
     @State private var transactionUseCase: TransactionUseCase
     #if DEBUG
     @AppStorage("splashPreviewTrigger") private var splashPreviewTrigger: Int = 0
@@ -81,29 +82,39 @@ struct DevCalApp: App {
         let txnRepo = TransactionRepository(context: context, sync: initialSync)
         let timeLogRepo = TimeLogRepository(context: context, sync: initialSync)
         let categoryRepo = CategoryItemRepository(context: context, sync: initialSync)
+        let milestoneRepo = MilestoneRepository(context: context, sync: initialSync)
         let useCase = TransactionUseCase(
             context: context,
             transactionRepository: txnRepo,
-            categoryItemRepository: categoryRepo
+            categoryItemRepository: categoryRepo,
+            sync: initialSync
         )
         _syncService = State(initialValue: initialSync)
         _projectRepository = State(initialValue: projectRepo)
         _transactionRepository = State(initialValue: txnRepo)
         _timeLogRepository = State(initialValue: timeLogRepo)
         _categoryItemRepository = State(initialValue: categoryRepo)
+        _milestoneRepository = State(initialValue: milestoneRepo)
         _transactionUseCase = State(initialValue: useCase)
 
-        Task { @MainActor in
+        Task { @MainActor [initialSync] in
             SeedData.seedIfEmpty(resolvedContainer.mainContext)
             // First scheduler pass uses the user's display currency for
             // break-even stamping; FX may be cold but stamping is
             // best-effort anyway.
             let displayCurrency = UserDefaults.standard.string(forKey: "defaultCurrency") ?? "TWD"
-            SubscriptionScheduler.runDueCheck(
-                context: resolvedContainer.mainContext,
-                displayCurrency: displayCurrency,
-                fx: ExchangeRateService.shared
-            )
+            do {
+                try SubscriptionScheduler.runDueCheck(
+                    context: resolvedContainer.mainContext,
+                    sync: initialSync,
+                    displayCurrency: displayCurrency,
+                    fx: ExchangeRateService.shared
+                )
+            } catch {
+                #if DEBUG
+                print("[scheduler] launch run failed: \(error)")
+                #endif
+            }
         }
     }
 
@@ -119,7 +130,9 @@ struct DevCalApp: App {
                     .environment(\.transactionRepository, transactionRepository)
                     .environment(\.timeLogRepository, timeLogRepository)
                     .environment(\.categoryItemRepository, categoryItemRepository)
+                    .environment(\.milestoneRepository, milestoneRepository)
                     .environment(\.transactionUseCase, transactionUseCase)
+                    .environment(\.syncService, syncService)
                     .dismissKeyboardOnTapOutside()
                     .inAppBrowser()
                     .appReviewPrompt(appReviewPrompter)
@@ -159,11 +172,18 @@ struct DevCalApp: App {
         .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                SubscriptionScheduler.runDueCheck(
-                    context: container.mainContext,
-                    displayCurrency: defaultCurrency,
-                    fx: fx
-                )
+                do {
+                    try SubscriptionScheduler.runDueCheck(
+                        context: container.mainContext,
+                        sync: syncService,
+                        displayCurrency: defaultCurrency,
+                        fx: fx
+                    )
+                } catch {
+                    #if DEBUG
+                    print("[scheduler] scenePhase run failed: \(error)")
+                    #endif
+                }
                 Task { await fx.refreshIfNeeded() }
             }
         }
