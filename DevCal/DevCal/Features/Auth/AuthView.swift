@@ -83,7 +83,7 @@ struct AuthView: View {
         terms.foregroundColor = Theme.brand
         terms.underlineStyle = .single
 
-        var conjunction = AttributedString(" 和 ")
+        let conjunction = AttributedString(" 和 ")
 
         var privacy = AttributedString("隱私權政策")
         privacy.link = privacyURL
