@@ -50,19 +50,31 @@ final class FirestoreSyncService: SyncServicing {
     private let modelContext: ModelContext?
     private let pullPageLimit: Int
 
+    /// Set by `enqueue` (or by syncNow while another pass is mid-flight) to
+    /// signal that another pass should run after the current one finishes.
+    /// Without this an enqueue that lands during `.pushing` would lose its
+    /// auto-trigger.
+    private var pendingTrigger: Bool = false
+
     // MARK: - Init
 
     /// Designated init. Production callers use the convenience init that
     /// resolves the uid from FirebaseAuth and writes via FirestoreRemoteWriter;
     /// tests inject their own closure + a temp queue URL + a mock writer +
     /// (for pull tests) a mock reader and an in-memory ModelContext.
+    /// Production wires this on so every local write auto-syncs; unit tests
+    /// leave it off so the test thread can call `syncNow()` once and assert
+    /// on the resulting calls without a second pass racing in.
+    private let autoTriggerOnEnqueue: Bool
+
     init(
         currentUID: @escaping @MainActor () -> String?,
         queueURL: URL,
         remote: (any RemoteWriting)? = nil,
         reader: (any RemoteReading)? = nil,
         modelContext: ModelContext? = nil,
-        pullPageLimit: Int = 500
+        pullPageLimit: Int = 500,
+        autoTriggerOnEnqueue: Bool = false
     ) {
         self.currentUID = currentUID
         self.queueURL = queueURL
@@ -70,20 +82,23 @@ final class FirestoreSyncService: SyncServicing {
         self.reader = reader
         self.modelContext = modelContext
         self.pullPageLimit = pullPageLimit
+        self.autoTriggerOnEnqueue = autoTriggerOnEnqueue
         self.queue = Self.loadQueue(at: queueURL)
         refreshStatusFromAuth()
     }
 
     /// Production convenience: wires FirebaseAuth, the standard queue file,
-    /// and Firestore reader/writer instances. The caller hands in the
-    /// SwiftData `mainContext` so pull can reconcile cloud → local.
+    /// and Firestore reader/writer instances + auto-sync on every enqueue.
+    /// The caller hands in the SwiftData `mainContext` so pull can reconcile
+    /// cloud → local.
     convenience init(modelContext: ModelContext) {
         self.init(
             currentUID: { Auth.auth().currentUser?.uid },
             queueURL: Self.defaultQueueURL(),
             remote: FirestoreRemoteWriter(),
             reader: FirestoreRemoteReader(),
-            modelContext: modelContext
+            modelContext: modelContext,
+            autoTriggerOnEnqueue: true
         )
     }
 
@@ -92,16 +107,37 @@ final class FirestoreSyncService: SyncServicing {
     func enqueue(_ operation: PendingSyncOperation) {
         queue.append(operation)
         persistQueue()
+        // Production: every write auto-syncs to cloud — no "save your edits
+        // then remember to hit 立即同步" friction. Tests opt out via the
+        // designated init's `autoTriggerOnEnqueue: false` default so the
+        // assertion-driving syncNow() call doesn't race with a spawned one.
+        // Errors land in `status` and CloudSyncSettingsView surfaces them.
+        if autoTriggerOnEnqueue {
+            Task { [weak self] in
+                try? await self?.syncNow()
+            }
+        }
     }
 
     func syncNow() async throws {
         refreshStatusFromAuth()
-        guard case .idle = status else { return }
-        await runPush()
-        // Bail before pull if push surfaced an error — pulling on top of a
-        // failed push could clobber the local change the user just made.
-        if case .failed = status { return }
-        await runPull()
+        guard currentUID() != nil else { return }
+        // If another pass is already running, mark a re-run and bail. The
+        // running pass will pick up our newly enqueued op when it re-checks
+        // the queue at the end (see `pendingTrigger` loop below).
+        guard case .idle = status else {
+            pendingTrigger = true
+            return
+        }
+        repeat {
+            pendingTrigger = false
+            await runPush()
+            // Push errors stop the pass — pulling on top of a failed push
+            // could clobber the local change the user just made.
+            if case .failed = status { return }
+            await runPull()
+            if case .failed = status { return }
+        } while pendingTrigger
     }
 
     // MARK: - Push

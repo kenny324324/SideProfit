@@ -2773,6 +2773,9 @@
         }
       }
     },
+    "Delete failed" : {
+
+    },
     "Delete income" : {
       "localizations" : {
         "en" : {
@@ -10030,6 +10033,9 @@
         }
       }
     },
+    "同步失敗" : {
+
+    },
     "品牌" : {
       "localizations" : {
         "en" : {
@@ -13667,6 +13673,9 @@
           }
         }
       }
+    },
+    "請先登入" : {
+
     },
     "請在系統設定中開啟通知" : {
       "localizations" : {
