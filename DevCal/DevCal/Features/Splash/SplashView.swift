@@ -70,39 +70,17 @@ enum SplashDefaults {
 }
 
 struct SplashView: View {
-    @AppStorage(SplashDefaults.iconKey) private var iconRaw: String = SplashDefaults.defaultIcon.rawValue
-    @AppStorage(SplashDefaults.iconSizeKey) private var iconSize: Int = SplashDefaults.defaultIconSize
-    @AppStorage(SplashDefaults.appNameSizeKey) private var appNameSize: Int = SplashDefaults.defaultAppNameSize
     @AppStorage(SplashDefaults.footerSizeKey) private var footerSize: Int = SplashDefaults.defaultFooterSize
-    @AppStorage(SplashDefaults.iconNameSpacingKey) private var iconNameSpacing: Int = SplashDefaults.defaultIconNameSpacing
     @AppStorage(SplashDefaults.blockOffsetYKey) private var blockOffsetY: Int = SplashDefaults.defaultBlockOffsetY
     @AppStorage(SplashDefaults.footerBottomKey) private var footerBottom: Int = SplashDefaults.defaultFooterBottom
-
-    private var icon: SplashIcon {
-        SplashIcon(rawValue: iconRaw) ?? SplashDefaults.defaultIcon
-    }
-
-    /// Pulled from Info.plist so renaming the product / display name auto-flows.
-    private var appName: String {
-        let bundle = Bundle.main
-        return (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
-            ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
-            ?? "App"
-    }
 
     var body: some View {
         ZStack {
             Theme.appBackground
                 .ignoresSafeArea()
 
-            HStack(spacing: CGFloat(iconNameSpacing)) {
-                iconImage
-                Text(appName)
-                    .font(Typography.font(size: CGFloat(appNameSize), weight: .semibold))
-                    .foregroundStyle(Theme.primaryText)
-                    .lineLimit(1)
-            }
-            .offset(y: CGFloat(blockOffsetY))
+            SplashBrandMark()
+                .offset(y: CGFloat(blockOffsetY))
 
             VStack {
                 Spacer()
@@ -111,6 +89,37 @@ struct SplashView: View {
                     .foregroundStyle(Theme.primaryText)
                     .padding(.bottom, CGFloat(footerBottom))
             }
+        }
+    }
+}
+
+/// Icon + app-name lockup shown on the splash and carried into the auth screen
+/// so the brand mark visually "stays put" across the splash → sign-in handoff.
+/// Reads the same AppStorage knobs as the splash so design tweaks flow to both.
+struct SplashBrandMark: View {
+    @AppStorage(SplashDefaults.iconKey) private var iconRaw: String = SplashDefaults.defaultIcon.rawValue
+    @AppStorage(SplashDefaults.iconSizeKey) private var iconSize: Int = SplashDefaults.defaultIconSize
+    @AppStorage(SplashDefaults.appNameSizeKey) private var appNameSize: Int = SplashDefaults.defaultAppNameSize
+    @AppStorage(SplashDefaults.iconNameSpacingKey) private var iconNameSpacing: Int = SplashDefaults.defaultIconNameSpacing
+
+    private var icon: SplashIcon {
+        SplashIcon(rawValue: iconRaw) ?? SplashDefaults.defaultIcon
+    }
+
+    private var appName: String {
+        let bundle = Bundle.main
+        return (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? "App"
+    }
+
+    var body: some View {
+        HStack(spacing: CGFloat(iconNameSpacing)) {
+            iconImage
+            Text(appName)
+                .font(Typography.font(size: CGFloat(appNameSize), weight: .semibold))
+                .foregroundStyle(Theme.primaryText)
+                .lineLimit(1)
         }
     }
 
