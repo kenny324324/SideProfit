@@ -10,6 +10,7 @@
 import Foundation
 import StoreKit
 import SwiftUI
+import UIKit
 
 @MainActor
 @Observable
@@ -28,9 +29,50 @@ final class AppReviewPrompter {
 
     static let developerEmail = "Kenny4work324@gmail.com"
 
+    /// `mailto:` link for "Contact developer" / the "Not satisfied" review path.
+    /// Subject stays English+brand so the inbox is filterable; the body is
+    /// localized and carries device diagnostics for support.
     static var developerMailURL: URL {
-        let subject = "SideProfit Feedback".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "SideProfit"
-        return URL(string: "mailto:\(developerEmail)?subject=\(subject)")!
+        var comps = URLComponents()
+        comps.scheme = "mailto"
+        comps.path = developerEmail
+        comps.queryItems = [
+            URLQueryItem(name: "subject", value: "SideProfit Feedback"),
+            URLQueryItem(name: "body", value: supportMailBody())
+        ]
+        return comps.url ?? URL(string: "mailto:\(developerEmail)")!
+    }
+
+    private static func supportMailBody() -> String {
+        let device = UIDevice.current
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+
+        let intro = String(localized: "在這裡描述你遇到的問題或建議：")
+        let keepLine = String(localized: "以下資訊請保留，有助於我們排查問題。")
+
+        return """
+        \(intro)
+
+
+        ----------
+        \(keepLine)
+        Device: \(deviceModelIdentifier())
+        Device name: \(device.name)
+        OS: \(device.systemName) \(device.systemVersion)
+        App: SideProfit \(version) (\(build))
+        """
+    }
+
+    /// Hardware identifier like `iPhone15,2` — more useful for support than
+    /// `UIDevice.model`, which only returns "iPhone".
+    private static func deviceModelIdentifier() -> String {
+        var info = utsname()
+        uname(&info)
+        let id = withUnsafeBytes(of: &info.machine) { raw -> String in
+            String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
+        }
+        return id.isEmpty ? "unknown" : id
     }
 
     var pendingPrompt: Prompt?

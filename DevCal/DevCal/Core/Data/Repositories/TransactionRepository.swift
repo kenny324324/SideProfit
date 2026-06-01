@@ -83,6 +83,12 @@ final class TransactionRepository {
         try enqueueSync(for: project)
 
         let reached = !hadReachedBreakEven && project.breakevenReachedAt != nil
+        if reached {
+            await LocalNotificationScheduler.postBreakeven(
+                projectId: project.id,
+                projectName: project.name
+            )
+        }
         return CreateOutcome(transaction: txn, reachedBreakEvenForThisWrite: reached)
     }
 
@@ -135,6 +141,12 @@ final class TransactionRepository {
         try enqueueSync(for: project)
 
         let reached = !hadReachedBreakEven && project.breakevenReachedAt != nil
+        if reached {
+            await LocalNotificationScheduler.postBreakeven(
+                projectId: project.id,
+                projectName: project.name
+            )
+        }
         return CreateOutcome(transaction: transaction, reachedBreakEvenForThisWrite: reached)
     }
 
@@ -164,7 +176,7 @@ final class TransactionRepository {
             iconColorHex: nil,
             originalAmount: feeAmount,
             originalCurrencyCode: currencyCode,
-            note: "來自:\(noteSource)",
+            note: String(localized: "來自:\(noteSource)"),
             date: date,
             displayCurrency: displayCurrency,
             fx: fx
@@ -234,8 +246,8 @@ enum PlatformFeeVendor: Equatable, Sendable {
 
     var feeName: String {
         switch self {
-        case .apple: return "Apple 平台抽成"
-        case .google: return "Google 平台抽成"
+        case .apple: return String(localized: "Apple 平台抽成")
+        case .google: return String(localized: "Google 平台抽成")
         }
     }
 

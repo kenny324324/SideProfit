@@ -14,7 +14,7 @@ import PhosphorSymbols
 struct MilestonesView: View {
     @Environment(\.milestoneRepository) private var milestoneRepository
     @Environment(ExchangeRateService.self) private var fx
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     let project: Project
 
     @State private var showAddManual = false

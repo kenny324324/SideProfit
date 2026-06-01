@@ -79,6 +79,7 @@ enum SubscriptionScheduler {
         var generatedTransactions: [Transaction] = []
         var touchedItems: [UUID: CategoryItem] = [:]
         var touchedProjects: [UUID: Project] = [:]
+        var newlyStampedProjects: [UUID: Project] = [:]
         // Idempotency check inside the catch-up loop reads back what we just
         // inserted in earlier iterations, so the local-day boundary still
         // uses the device's calendar — that's a per-device concern.
@@ -99,6 +100,9 @@ enum SubscriptionScheduler {
                 generatedTransactions.append(contentsOf: result.transactions)
                 for project in result.touchedProjects {
                     touchedProjects[project.id] = project
+                }
+                for project in result.newlyStampedProjects {
+                    newlyStampedProjects[project.id] = project
                 }
                 if !result.transactions.isEmpty {
                     touchedItems[item.id] = item
@@ -133,11 +137,28 @@ enum SubscriptionScheduler {
         for project in touchedProjects.values {
             try enqueueProject(project, sync: sync)
         }
+
+        // Fire local notifications for any project that just hit break-even
+        // through a generated subscription transaction. Spawned as a detached
+        // task so callers (DevCalApp launch + scenePhase) aren't blocked on
+        // notification scheduling.
+        if !newlyStampedProjects.isEmpty {
+            let payload = newlyStampedProjects.values.map { (id: $0.id, name: $0.name) }
+            Task { @MainActor in
+                for entry in payload {
+                    await LocalNotificationScheduler.postBreakeven(
+                        projectId: entry.id,
+                        projectName: entry.name
+                    )
+                }
+            }
+        }
     }
 
     private struct FireResult {
         let transactions: [Transaction]
         let touchedProjects: [Project]
+        let newlyStampedProjects: [Project]
     }
 
     @MainActor
@@ -150,7 +171,9 @@ enum SubscriptionScheduler {
         fx: ExchangeRateService
     ) -> FireResult {
         let allocation = item.projects ?? []
-        guard !allocation.isEmpty else { return FireResult(transactions: [], touchedProjects: []) }
+        guard !allocation.isEmpty else {
+            return FireResult(transactions: [], touchedProjects: [], newlyStampedProjects: [])
+        }
 
         let itemID = item.id
         let dayStart = calendar.startOfDay(for: date)
@@ -165,7 +188,9 @@ enum SubscriptionScheduler {
                     && txn.date < dayEnd
             }
         ))) ?? []
-        if !existing.isEmpty { return FireResult(transactions: [], touchedProjects: []) }
+        if !existing.isEmpty {
+            return FireResult(transactions: [], touchedProjects: [], newlyStampedProjects: [])
+        }
 
         let type = item.transactionType
         let category = item.category
@@ -177,6 +202,7 @@ enum SubscriptionScheduler {
 
         var generated: [Transaction] = []
         var touched: [Project] = []
+        var newlyStamped: [Project] = []
         for project in allocation {
             let amount = item.amount(for: project)
             guard amount > 0 else { continue }
@@ -209,9 +235,11 @@ enum SubscriptionScheduler {
             if !touched.contains(where: { $0.id == project.id }) {
                 touched.append(project)
             }
-            _ = hadReachedBefore
+            if !hadReachedBefore, project.breakevenReachedAt != nil {
+                newlyStamped.append(project)
+            }
         }
-        return FireResult(transactions: generated, touchedProjects: touched)
+        return FireResult(transactions: generated, touchedProjects: touched, newlyStampedProjects: newlyStamped)
     }
 
     @MainActor

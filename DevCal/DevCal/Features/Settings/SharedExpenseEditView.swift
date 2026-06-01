@@ -18,7 +18,7 @@ struct SharedExpenseEditView: View {
     @Environment(\.syncService) private var syncService
     @Environment(\.dismiss) private var dismiss
     @Environment(ExchangeRateService.self) private var fx
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
 
     @State private var saveError: String? = nil
     @State private var showErrorAlert = false
@@ -43,7 +43,7 @@ struct SharedExpenseEditView: View {
     @State private var type: TransactionType = .expense
     @State private var category: TransactionCategory = .aiTools
     @State private var totalAmount: Double = 0
-    @State private var originalCurrencyCode: String = "TWD"
+    @State private var originalCurrencyCode: String = "USD"
     @State private var billingType: BillingType = .monthly
     @State private var nextDueDate: Date = Date()
     @State private var brandIconKey: String? = nil
@@ -120,10 +120,10 @@ struct SharedExpenseEditView: View {
         let day = cal.component(.day, from: nextDueDate)
         switch billingType {
         case .monthly:
-            return "之後每月 \(day) 號扣款。開始日期若早於今天,會自動補齊每一期的紀錄。"
+            return String(localized: "之後每月 \(day) 號扣款。開始日期若早於今天,會自動補齊每一期的紀錄。")
         case .yearly:
             let month = cal.component(.month, from: nextDueDate)
-            return "之後每年 \(month) 月 \(day) 日扣款。開始日期若早於今天,會自動補齊每一年的紀錄。"
+            return String(localized: "之後每年 \(month) 月 \(day) 日扣款。開始日期若早於今天,會自動補齊每一年的紀錄。")
         case .oneTime:
             return nil
         }
@@ -276,7 +276,9 @@ struct SharedExpenseEditView: View {
     }
 
     private var navTitle: String {
-        editing == nil ? "新增共用項目" : "編輯共用項目"
+        editing == nil
+            ? String(localized: "新增共用項目")
+            : String(localized: "編輯共用項目")
     }
 
     // MARK: - Sub-views

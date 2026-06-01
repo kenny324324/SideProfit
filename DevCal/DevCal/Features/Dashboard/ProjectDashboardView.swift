@@ -23,7 +23,7 @@ struct ProjectDashboardView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(Entitlements.self) private var entitlements
     @Environment(ExchangeRateService.self) private var fx
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Bindable var project: Project
 
     @State private var pendingNewType: TransactionType?
@@ -210,9 +210,11 @@ struct ProjectDashboardView: View {
     private var staleSubtitle: String {
         if let last = fx.lastUpdated {
             let days = Int(Date().timeIntervalSince(last) / 86_400)
-            return days <= 0 ? "今天還沒更新" : "已 \(days) 天沒更新"
+            return days <= 0
+                ? String(localized: "今天還沒更新")
+                : String(localized: "已 \(days) 天沒更新")
         }
-        return "尚未取得匯率"
+        return String(localized: "尚未取得匯率")
     }
 
     // MARK: - Hero banner (fixed-top progress)

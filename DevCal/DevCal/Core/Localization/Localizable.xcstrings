@@ -260,6 +260,62 @@
         }
       }
     },
+    "%@ 已經回本，恭喜！" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ has broken even. Congratulations!"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@が損益分岐点に到達しました。おめでとうございます！"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@(이)가 손익분기점에 도달했어요. 축하합니다!"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已經回本，恭喜！"
+          }
+        }
+      }
+    },
+    "%@ 明天會自動扣款。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ will be charged automatically tomorrow."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@が明日自動的に引き落とされます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@(이)가 내일 자동으로 결제됩니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 明天會自動扣款。"
+          }
+        }
+      }
+    },
     "%lld milestone%@ reached" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -285,6 +341,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已達成 %1$lld 個里程碑"
+          }
+        }
+      }
+    },
+    "%lld 個專案 · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld projects · %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld件のプロジェクト · %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "프로젝트 %lld개 · %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個專案 · %@"
           }
         }
       }
@@ -486,6 +570,7 @@
       }
     },
     "50 筆" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1373,7 +1458,6 @@
       }
     },
     "Apple 平台抽成" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1397,6 +1481,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple 平台抽成"
+          }
+        }
+      }
+    },
+    "Apple 沒有回傳有效的登入憑證，請再試一次。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple didn't return a valid sign-in credential. Please try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appleから有効なサインイン情報が返されませんでした。もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple에서 유효한 로그인 자격 증명을 반환하지 않았어요. 다시 시도해 주세요."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 沒有回傳有效的登入憑證，請再試一次。"
           }
         }
       }
@@ -1898,6 +2010,7 @@
       }
     },
     "Cloud sync" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2376,6 +2489,7 @@
       }
     },
     "CSV 匯出" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2966,56 +3080,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "開發工具"
-          }
-        }
-      }
-    },
-    "SideProfit Pro" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfit Pro"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfit Pro"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfit Pro"
-          }
-        }
-      }
-    },
-    "SideProfit 沒有通知權限,提醒將無法送出。" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfit doesn't have notification permission — reminders can't be delivered."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfitに通知の許可がないため、リマインダーを送信できません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfit에 알림 권한이 없어 알림을 전달할 수 없습니다."
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfit 沒有通知權限，提醒將無法送出。"
           }
         }
       }
@@ -4071,7 +4135,6 @@
       }
     },
     "Google 平台抽成" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5867,7 +5930,32 @@
       }
     },
     "OK" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
+          }
+        }
+      }
     },
     "On track — projected in %lld months" : {
       "localizations" : {
@@ -5954,7 +6042,32 @@
       }
     },
     "Operation failed" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Operation failed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作に失敗しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작업 실패"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作失敗"
+          }
+        }
+      }
     },
     "or" : {
       "extractionState" : "stale",
@@ -6683,6 +6796,7 @@
       }
     },
     "Restore purchases" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6852,7 +6966,32 @@
       }
     },
     "Save failed" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save failed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存に失敗しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장 실패"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存失敗"
+          }
+        }
+      }
     },
     "Search" : {
       "localizations" : {
@@ -7337,14 +7476,7 @@
       }
     },
     "SideProfit Pro" : {
-      "extractionState" : "stale",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "SideProfit Pro"
-          }
-        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -7361,6 +7493,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SideProfit Pro"
+          }
+        }
+      }
+    },
+    "SideProfit 沒有通知權限,提醒將無法送出。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideProfit doesn't have notification permission — reminders can't be delivered."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideProfitに通知の許可がないため、リマインダーを送信できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideProfit에 알림 권한이 없어 알림을 전달할 수 없습니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SideProfit 沒有通知權限，提醒將無法送出。"
           }
         }
       }
@@ -9130,6 +9290,7 @@
       }
     },
     "上次同步" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -9182,6 +9343,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上次更新 "
+          }
+        }
+      }
+    },
+    "上次更新 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Updated %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新 %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 업데이트됨"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次更新 %@"
           }
         }
       }
@@ -9243,6 +9432,62 @@
         }
       }
     },
+    "之後每年 %lld 月 %lld 日扣款。開始日期若早於今天,會自動補齊每一年的紀錄。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charged on %lld/%lld (month/day) each year. If the start date is in the past, every missed year is filled in automatically."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毎年%lld月%lld日に引き落とされます。開始日が過去の場合、各年分が自動的に補完されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "매년 %lld월 %lld일에 결제됩니다. 시작일이 오늘보다 이전이면 누락된 각 연도가 자동으로 채워집니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "之後每年 %lld 月 %lld 日扣款。開始日期若早於今天，會自動補齊每一年的紀錄。"
+          }
+        }
+      }
+    },
+    "之後每月 %lld 號扣款。開始日期若早於今天,會自動補齊每一期的紀錄。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Charged on day %lld each month. If the start date is in the past, every missed cycle is filled in automatically."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毎月%lld日に引き落とされます。開始日が過去の場合、各回分が自動的に補完されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "매월 %lld일에 결제됩니다. 시작일이 오늘보다 이전이면 누락된 각 회차가 자동으로 채워집니다."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "之後每月 %lld 號扣款。開始日期若早於今天，會自動補齊每一期的紀錄。"
+          }
+        }
+      }
+    },
     "之後記帳會自動帶入這個金額,但仍可依當次手動調整。" : {
       "localizations" : {
         "en" : {
@@ -9272,7 +9517,6 @@
       }
     },
     "今天還沒更新" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -9329,6 +9573,34 @@
         }
       }
     },
+    "來自:%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供元: %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "출처: %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "來自:%@"
+          }
+        }
+      }
+    },
     "依近期營收推估完成日,並顯示領先或落後幅度。" : {
       "localizations" : {
         "en" : {
@@ -9358,6 +9630,7 @@
       }
     },
     "僅在 Wi-Fi 同步" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10060,6 +10333,7 @@
       }
     },
     "同步失敗" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10678,7 +10952,6 @@
       }
     },
     "尚未取得匯率" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -10730,6 +11003,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "尚未設定共用項目"
+          }
+        }
+      }
+    },
+    "差 %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ to go"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あと%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 남음"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "差 %@"
+          }
+        }
+      }
+    },
+    "已 %lld 天沒更新" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld days without an update"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld日間更新なし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld일째 업데이트 없음"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已 %lld 天沒更新"
           }
         }
       }
@@ -10903,7 +11232,6 @@
       }
     },
     "平均分攤" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11495,6 +11823,7 @@
       }
     },
     "收支記錄" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11551,7 +11880,6 @@
       }
     },
     "新增共用項目" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11580,7 +11908,6 @@
       }
     },
     "新增項目" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11604,6 +11931,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "新增項目"
+          }
+        }
+      }
+    },
+    "明日扣款提醒" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment due tomorrow"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明日の引き落とし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내일 결제 예정"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明日扣款提醒"
           }
         }
       }
@@ -12169,6 +12524,7 @@
       }
     },
     "每天傍晚 18:00 通知今日進度" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12192,6 +12548,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "每天傍晚 18:00 通知今日進度"
+          }
+        }
+      }
+    },
+    "每天晚上 21:00 提醒你記下今天的支出與收入" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminds you at 21:00 each night to log today's income and expenses"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毎晩21:00に今日の支出と収入の記録をお知らせします"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "매일 밤 21:00에 오늘의 지출과 수입을 기록하도록 알려드려요"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每天晚上 21:00 提醒你記下今天的支出與收入"
           }
         }
       }
@@ -12224,30 +12608,30 @@
         }
       }
     },
-    "每日總結" : {
+    "每日記錄提醒" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Daily summary"
+            "value" : "Daily logging reminder"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "毎日のまとめ"
+            "value" : "毎日の記録リマインダー"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일일 요약"
+            "value" : "매일 기록 알림"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "每日總結"
+            "value" : "每日記錄提醒"
           }
         }
       }
@@ -12505,11 +12889,89 @@
         }
       }
     },
+    "登入即表示您同意我們的 [服務條款](%@) 和 [隱私權政策](%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By signing in, you agree to our [Terms of Service](%@) and [Privacy Policy](%@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインすると、[利用規約](%@)および[プライバシーポリシー](%@)に同意したものとみなされます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인하면 [서비스 약관](%@) 및 [개인정보 처리방침](%@)에 동의하는 것으로 간주됩니다"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入即表示您同意我們的 [服務條款](%@) 和 [隱私權政策](%@)"
+          }
+        }
+      }
+    },
     "登入失敗" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign-in failed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインインに失敗しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 실패"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入失敗"
+          }
+        }
+      }
     },
     "登入帳號與本機資料都會永久移除，且無法復原。" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your account and all local data will be permanently removed and cannot be recovered."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログインアカウントと端末内のデータは完全に削除され、復元できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 계정과 기기 내 데이터가 영구적으로 삭제되며 복구할 수 없어요."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入帳號與本機資料都會永久移除，且無法復原。"
+          }
+        }
+      }
     },
     "登出" : {
       "localizations" : {
@@ -12569,7 +13031,32 @@
       }
     },
     "發生錯誤" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Something went wrong"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エラーが発生しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오류가 발생했어요"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "發生錯誤"
+          }
+        }
+      }
     },
     "目前區間還沒有支出紀錄。" : {
       "localizations" : {
@@ -12852,6 +13339,7 @@
       }
     },
     "立即同步" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13247,7 +13735,6 @@
       }
     },
     "編輯共用項目" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13276,7 +13763,6 @@
       }
     },
     "編輯項目" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13333,6 +13819,7 @@
       }
     },
     "自動同步" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13389,7 +13876,6 @@
       }
     },
     "自訂比例" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13441,6 +13927,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自訂比例預覽"
+          }
+        }
+      }
+    },
+    "花一分鐘把今天的支出與收入記下來。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take a minute to log today's income and expenses."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1分で今日の支出と収入を記録しましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1분만 들여 오늘의 지출과 수입을 기록해 보세요."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "花一分鐘把今天的支出與收入記下來。"
           }
         }
       }
@@ -13613,6 +14127,34 @@
         }
       }
     },
+    "記下今天的進度" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Log today's progress"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日の記録をつけましょう"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘의 기록을 남겨보세요"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記下今天的進度"
+          }
+        }
+      }
+    },
     "記下幾筆收入或支出後，就能看到每月表現。" : {
       "localizations" : {
         "en" : {
@@ -13726,6 +14268,7 @@
       }
     },
     "請先登入" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14006,6 +14549,7 @@
       }
     },
     "進階分享版型" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14029,6 +14573,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "進階分享版型"
+          }
+        }
+      }
+    },
+    "達成回本" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Break-even reached"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "損益分岐点に到達"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "손익분기점 달성"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "達成回本"
           }
         }
       }
@@ -14314,6 +14886,7 @@
       }
     },
     "開啟後,專案、收支與時間紀錄會自動同步到你的帳號,在任何裝置登入都能取得最新資料。同步在背景進行,不會中斷你正在編輯的內容。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14456,6 +15029,7 @@
       }
     },
     "雲端同步" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14512,7 +15086,6 @@
       }
     },
     "預設" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -14621,6 +15194,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "飲食手帳"
+          }
+        }
+      }
+    },
+    "在這裡描述你遇到的問題或建議：" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Describe the issue or feedback here:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここに問題やご意見をご記入ください："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에 문제나 의견을 적어 주세요:"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在這裡描述你遇到的問題或建議："
+          }
+        }
+      }
+    },
+    "以下資訊請保留，有助於我們排查問題。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please keep the info below — it helps us troubleshoot."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以下の情報は問題の調査に役立つため、残してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아래 정보는 문제 해결에 도움이 되니 남겨 주세요."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以下資訊請保留，有助於我們排查問題。"
           }
         }
       }

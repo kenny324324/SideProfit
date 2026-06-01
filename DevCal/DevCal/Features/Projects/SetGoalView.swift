@@ -13,11 +13,11 @@ import PhosphorSymbols
 struct SetGoalView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.projectRepository) private var projectRepository
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Bindable var project: Project
 
     @State private var goalAmount: Double = 0
-    @State private var goalCurrencyCode: String = "TWD"
+    @State private var goalCurrencyCode: String = "USD"
     @State private var hasDeadline: Bool = false
     @State private var deadline: Date = Date()
 

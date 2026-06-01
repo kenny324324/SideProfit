@@ -15,7 +15,7 @@ struct DevCalApp: App {
     @AppStorage("preferredAppearance") private var preferredAppearance: String = "system"
     @AppStorage(Typography.DefaultsKey.latinMode) private var latinMode: String = Typography.FontMode.branded.rawValue
     @AppStorage(Typography.DefaultsKey.cjkMode) private var cjkMode: String = Typography.FontMode.native.rawValue
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Environment(\.scenePhase) private var scenePhase
     // Built in `init()` *after* FirebaseApp.configure() so the auth state
     // listener has a configured Firebase app to attach to.
@@ -52,9 +52,9 @@ struct DevCalApp: App {
         // open the app in their own currency. Subsequent launches respect
         // whatever the user picked in Settings.
         if UserDefaults.standard.object(forKey: "defaultCurrency") == nil {
-            let locale = Locale.current.currency?.identifier ?? "TWD"
+            let locale = Locale.current.currency?.identifier ?? "USD"
             let supported = ExchangeRateService.supportedCodes
-            UserDefaults.standard.set(supported.contains(locale) ? locale : "TWD",
+            UserDefaults.standard.set(supported.contains(locale) ? locale : "USD",
                                       forKey: "defaultCurrency")
         }
 
@@ -101,7 +101,7 @@ struct DevCalApp: App {
             // First scheduler pass uses the user's display currency for
             // break-even stamping; FX may be cold but stamping is
             // best-effort anyway.
-            let displayCurrency = UserDefaults.standard.string(forKey: "defaultCurrency") ?? "TWD"
+            let displayCurrency = UserDefaults.standard.string(forKey: "defaultCurrency") ?? "USD"
             do {
                 try SubscriptionScheduler.runDueCheck(
                     context: resolvedContainer.mainContext,
@@ -114,6 +114,15 @@ struct DevCalApp: App {
                 print("[scheduler] launch run failed: \(error)")
                 #endif
             }
+            // Notifications default on — ask for system permission on first
+            // launch so the schedule below actually delivers. No-ops once the
+            // user has answered.
+            await LocalNotificationScheduler.requestAuthorizationIfNeededOnLaunch()
+            // Bring local notification schedule in line with toggle state on
+            // launch. Re-runs on scenePhase = .active so a CategoryItem edit
+            // mid-session lands by the next foreground transition.
+            let items = (try? resolvedContainer.mainContext.fetch(FetchDescriptor<CategoryItem>())) ?? []
+            await LocalNotificationScheduler.rescheduleAll(items: items)
         }
     }
 
@@ -164,9 +173,8 @@ struct DevCalApp: App {
             .task(id: auth.account?.id) {
                 // Auto-sync on launch (if already signed in) and whenever
                 // sign-in lands. syncNow() is push-then-pull, so existing
-                // cloud data flows down without the user having to find the
-                // "立即同步" button. Errors surface as syncService.status =
-                // .failed; CloudSyncSettingsView reads it.
+                // cloud data flows down silently. Sync has no Settings UI in
+                // v1.0.0 — failures retry on the next enqueue.
                 guard auth.account != nil else { return }
                 try? await syncService.syncNow()
             }
@@ -193,6 +201,10 @@ struct DevCalApp: App {
                     #endif
                 }
                 Task { await fx.refreshIfNeeded() }
+                Task { @MainActor in
+                    let items = (try? container.mainContext.fetch(FetchDescriptor<CategoryItem>())) ?? []
+                    await LocalNotificationScheduler.rescheduleAll(items: items)
+                }
             }
         }
         .onChange(of: latinMode) { _, _ in Typography.applyUIKitAppearance() }

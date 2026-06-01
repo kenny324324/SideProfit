@@ -18,7 +18,7 @@ struct TransactionRow: View {
     let transaction: Transaction
     var showProjectName: Bool = false
 
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Environment(ExchangeRateService.self) private var fx
 
     var body: some View {

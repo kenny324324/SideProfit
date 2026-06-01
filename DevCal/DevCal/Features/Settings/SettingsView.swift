@@ -10,7 +10,6 @@
 import SwiftUI
 import SwiftData
 import UIKit
-import StoreKit
 import PhosphorSymbols
 
 struct SettingsView: View {
@@ -23,15 +22,13 @@ struct SettingsView: View {
     @Environment(\.timeLogRepository) private var timeLogRepository
     @Environment(\.categoryItemRepository) private var categoryItemRepository
     @AppStorage("needsOnboarding") private var needsOnboarding = false
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @AppStorage("preferredAppearance") private var preferredAppearance: String = "system"
-    @AppStorage("cloudSyncEnabled") private var cloudSyncEnabled: Bool = true
-    @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = false
+    @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = true
 
     @State private var showPaywall = false
     @State private var showSignOutConfirm = false
     @State private var showDeleteConfirm = false
-    @State private var showManageSubscriptions = false
     @State private var authError: String? = nil
     @State private var showAuthErrorAlert = false
     @State private var isDeletingAccount = false
@@ -73,7 +70,6 @@ struct SettingsView: View {
         .navigationTitle("Settings")
         .toolbarTitleDisplayMode(.inlineLarge)
         .fullScreenCover(isPresented: $showPaywall) { PaywallView() }
-        .manageSubscriptionsSheet(isPresented: $showManageSubscriptions)
         .systemAlert(
             "確定要登出 SideProfit？",
             isPresented: $showSignOutConfirm
@@ -174,10 +170,8 @@ struct SettingsView: View {
                     icon: Image(ph: "seal-check", weight: .regular),
                     label: "Subscription",
                     value: entitlements.plan == .proYearly ? "Pro · Yearly" : "Pro · Monthly",
-                    style: .chevron
-                ) {
-                    showManageSubscriptions = true
-                }
+                    style: .none
+                )
             } else {
                 SettingsRow(
                     icon: Image(ph: "sparkle", weight: .regular),
@@ -188,32 +182,29 @@ struct SettingsView: View {
                     showPaywall = true
                 }
             }
-            SettingsRow(
-                icon: Image(ph: "arrows-clockwise", weight: .regular),
-                label: "Cloud sync",
-                value: cloudSyncEnabled ? "On" : "Off",
-                style: .chevron,
-                destination: { CloudSyncSettingsView() }
-            )
-            SettingsRow(
-                icon: Image(ph: "receipt", weight: .regular),
-                label: "Restore purchases",
-                style: .none
-            ) {
-                entitlements.restore()
-            }
         }
     }
 
     @ViewBuilder
     private var dataGroup: some View {
         VStack(spacing: 0) {
-            SettingsRow(
-                icon: Image(ph: "share-network", weight: .regular),
-                label: "共用項目",
-                style: .chevron,
-                destination: { SharedExpensesView() }
-            )
+            if entitlements.isPro {
+                SettingsRow(
+                    icon: Image(ph: "share-network", weight: .regular),
+                    label: "共用項目",
+                    style: .chevron,
+                    destination: { SharedExpensesView() }
+                )
+            } else {
+                SettingsRow(
+                    icon: Image(ph: "share-network", weight: .regular),
+                    label: "共用項目",
+                    value: "Pro",
+                    style: .chevron
+                ) {
+                    showPaywall = true
+                }
+            }
         }
     }
 
@@ -384,9 +375,9 @@ struct SettingsView: View {
         if let last = fx.lastUpdated {
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .short
-            return "上次更新 " + formatter.localizedString(for: last, relativeTo: Date())
+            return String(localized: "上次更新 \(formatter.localizedString(for: last, relativeTo: Date()))")
         }
-        return "尚未取得匯率"
+        return String(localized: "尚未取得匯率")
     }
 
     private var appearanceRow: some View {
@@ -600,6 +591,12 @@ private struct DeveloperOptionsView: View {
     @AppStorage(SplashDefaults.iconNameSpacingKey) private var splashIconNameSpacing: Int = SplashDefaults.defaultIconNameSpacing
     @AppStorage(SplashDefaults.blockOffsetYKey) private var splashBlockOffsetY: Int = SplashDefaults.defaultBlockOffsetY
     @AppStorage(SplashDefaults.footerBottomKey) private var splashFooterBottom: Int = SplashDefaults.defaultFooterBottom
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("demo.contentLanguage") private var demoLanguageRaw: String = DemoLanguage.en.rawValue
+    @State private var showSeedConfirm = false
+    @State private var showClearConfirm = false
+
+    private var demoLanguage: DemoLanguage { DemoLanguage(rawValue: demoLanguageRaw) ?? .en }
 
     var body: some View {
         ScrollView {
@@ -653,12 +650,62 @@ private struct DeveloperOptionsView: View {
                         iconName: "translate",
                         selection: $cjkMode
                     )
+                    demoLanguageRow
+                    SettingsRow(
+                        icon: Image(ph: "sparkle", weight: .regular),
+                        label: "Seed demo data",
+                        value: demoLanguage.displayName,
+                        style: .none
+                    ) {
+                        showSeedConfirm = true
+                    }
+                    SettingsRow(
+                        icon: Image(ph: "trash", weight: .regular),
+                        label: "Clear all data",
+                        style: .none
+                    ) {
+                        showClearConfirm = true
+                    }
                 }
             }
         }
         .background(Theme.appBackground.ignoresSafeArea())
         .navigationTitle("Developer options")
         .navigationBarTitleDisplayMode(.inline)
+        .systemAlert("Seed demo data?", isPresented: $showSeedConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Replace data", role: .destructive) {
+                DemoData.apply(language: demoLanguage, context: modelContext)
+            }
+        } message: {
+            Text(verbatim: "Deletes all current data and inserts a demo portfolio in \(demoLanguage.displayName). Display currency switches to \(demoLanguage.currency).")
+        }
+        .systemAlert("Clear all data?", isPresented: $showClearConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete everything", role: .destructive) {
+                DemoData.wipe(modelContext)
+            }
+        } message: {
+            Text(verbatim: "Permanently deletes all projects, transactions, time logs, and shared items.")
+        }
+    }
+
+    private var demoLanguageRow: some View {
+        Menu {
+            Picker("Demo language", selection: $demoLanguageRaw) {
+                ForEach(DemoLanguage.allCases) { lang in
+                    Text(lang.displayName).tag(lang.rawValue)
+                }
+            }
+        } label: {
+            SettingsRowContent(
+                icon: Image(ph: "translate", weight: .regular),
+                label: "Demo language",
+                value: demoLanguage.displayName,
+                style: .menu,
+                tone: .normal
+            )
+        }
     }
 
     private func fontModeRow(label: LocalizedStringKey, iconName: String, selection: Binding<String>) -> some View {

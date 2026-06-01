@@ -13,7 +13,7 @@ import PhosphorSymbols
 
 struct TransactionsListView: View {
     @Environment(\.modelContext) private var context
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Environment(ExchangeRateService.self) private var fx
     let project: Project
 

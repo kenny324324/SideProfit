@@ -12,7 +12,7 @@ final class TimeLog {
     var hours: Double = 0
     var hourlyRate: Double = 0
     /// ISO 4217 currency the user picked when setting the rate.
-    var hourlyCurrencyCode: String = "TWD"
+    var hourlyCurrencyCode: String = "USD"
     var note: String = ""
     var date: Date = Date()
     var createdAt: Date = Date()
@@ -23,7 +23,7 @@ final class TimeLog {
     init(
         hours: Double = 0,
         hourlyRate: Double = 0,
-        hourlyCurrencyCode: String = "TWD",
+        hourlyCurrencyCode: String = "USD",
         note: String = "",
         date: Date = Date(),
         project: Project? = nil

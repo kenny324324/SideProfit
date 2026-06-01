@@ -16,7 +16,7 @@ import PhosphorSymbols
 struct CategoryItemEditView: View {
     @Environment(\.categoryItemRepository) private var categoryItemRepository
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
 
     let project: Project
     let category: TransactionCategory
@@ -26,7 +26,7 @@ struct CategoryItemEditView: View {
 
     @State private var name: String = ""
     @State private var defaultAmount: Double = 0
-    @State private var originalCurrencyCode: String = "TWD"
+    @State private var originalCurrencyCode: String = "USD"
     @State private var billingType: BillingType = .oneTime
     @State private var nextDueDate: Date = Date()
     @State private var brandIconKey: String? = nil
@@ -186,11 +186,13 @@ struct CategoryItemEditView: View {
         if let phName = fallbackIconName, !phName.isEmpty {
             return phName
         }
-        return "預設"
+        return String(localized: "預設")
     }
 
     private var navTitle: String {
-        editing == nil ? "新增項目" : "編輯項目"
+        editing == nil
+            ? String(localized: "新增項目")
+            : String(localized: "編輯項目")
     }
 
     // MARK: - Persistence

@@ -25,7 +25,7 @@ struct AddTransactionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.transactionUseCase) private var useCase
     @Environment(AppReviewPrompter.self) private var appReviewPrompter
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Environment(ExchangeRateService.self) private var fx
 
     let project: Project
@@ -34,7 +34,7 @@ struct AddTransactionView: View {
     @State private var type: TransactionType
     @State private var name: String = ""
     @State private var amount: Double = 0
-    @State private var originalCurrencyCode: String = "TWD"
+    @State private var originalCurrencyCode: String = "USD"
     @State private var category: TransactionCategory? = nil
     @State private var iconBrandKey: String? = nil
     @State private var iconFallbackName: String? = nil
@@ -231,10 +231,10 @@ struct AddTransactionView: View {
         let day = cal.component(.day, from: nextDueDate)
         switch billingType {
         case .monthly:
-            return "之後每月 \(day) 號扣款。開始日期若早於今天,會自動補齊每一期的紀錄。"
+            return String(localized: "之後每月 \(day) 號扣款。開始日期若早於今天,會自動補齊每一期的紀錄。")
         case .yearly:
             let month = cal.component(.month, from: nextDueDate)
-            return "之後每年 \(month) 月 \(day) 日扣款。開始日期若早於今天,會自動補齊每一年的紀錄。"
+            return String(localized: "之後每年 \(month) 月 \(day) 日扣款。開始日期若早於今天,會自動補齊每一年的紀錄。")
         case .oneTime:
             return nil
         }

@@ -15,7 +15,7 @@ struct TimeCostView: View {
     @Environment(\.modelContext) private var context
     @Environment(Entitlements.self) private var entitlements
     @Environment(ExchangeRateService.self) private var fx
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     let project: Project
 
     @State private var showAddLog = false

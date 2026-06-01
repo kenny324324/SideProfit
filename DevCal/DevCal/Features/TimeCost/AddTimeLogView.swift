@@ -11,14 +11,14 @@ struct AddTimeLogView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.timeLogRepository) private var timeLogRepository
     @Environment(AppReviewPrompter.self) private var appReviewPrompter
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
 
     let project: Project
     var editing: TimeLog?
 
     @State private var hours: Double = 1
     @State private var hourlyRate: Double = 0
-    @State private var hourlyCurrencyCode: String = "TWD"
+    @State private var hourlyCurrencyCode: String = "USD"
     @State private var note: String = ""
     @State private var date: Date = Date()
 

@@ -29,7 +29,6 @@ final class Entitlements {
 
     // Free-tier limits per planning doc.
     let freeProjectLimit = 1
-    let freeTransactionLimit = 50
 
     init() {
         if let raw = UserDefaults.standard.string(forKey: Self.storageKey),

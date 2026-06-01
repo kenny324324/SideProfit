@@ -111,7 +111,7 @@ final class FirestoreSyncService: SyncServicing {
         // then remember to hit 立即同步" friction. Tests opt out via the
         // designated init's `autoTriggerOnEnqueue: false` default so the
         // assertion-driving syncNow() call doesn't race with a spawned one.
-        // Errors land in `status` and CloudSyncSettingsView surfaces them.
+        // Errors land in `status` and silently retry on the next enqueue.
         if autoTriggerOnEnqueue {
             Task { [weak self] in
                 try? await self?.syncNow()

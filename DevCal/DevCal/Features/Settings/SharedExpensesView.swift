@@ -215,8 +215,10 @@ private struct SharedItemRow: View {
 
     private var subtitle: String {
         let projectCount = (item.projects ?? []).count
-        let mode = item.splitMode == .equal ? "平均分攤" : "自訂比例"
-        return "\(projectCount) 個專案 · \(mode)"
+        let mode = item.splitMode == .equal
+            ? String(localized: "平均分攤")
+            : String(localized: "自訂比例")
+        return String(localized: "\(projectCount) 個專案 · \(mode)")
     }
 
     private var formattedTotal: String {
@@ -225,9 +227,9 @@ private struct SharedItemRow: View {
 
     private var billingLabel: String {
         switch item.billingType {
-        case .oneTime: return "單次"
-        case .monthly: return "每月"
-        case .yearly: return "每年"
+        case .oneTime: return String(localized: "單次")
+        case .monthly: return String(localized: "每月")
+        case .yearly: return String(localized: "每年")
         }
     }
 }

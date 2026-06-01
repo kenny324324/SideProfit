@@ -17,7 +17,7 @@ import SwiftUI
 struct ProjectCard: View {
     let project: Project
 
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Environment(ExchangeRateService.self) private var fx
 
     var body: some View {

@@ -15,7 +15,7 @@ import PhosphorSymbols
 struct InsightsView: View {
     @Environment(Entitlements.self) private var entitlements
     @Environment(ExchangeRateService.self) private var fx
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
     @Query(sort: [SortDescriptor(\Project.createdAt, order: .reverse)]) private var projects: [Project]
     @State private var showPaywall = false
     @State private var selectedRange: InsightsTimeRange = .all
@@ -1012,9 +1012,9 @@ struct InsightsView: View {
                 return signedCurrency(row.net, currencyCode: currencyCode)
             case .breakeven:
                 if row.isBreakeven {
-                    return "已回本"
+                    return String(localized: "已回本")
                 }
-                return "差 \(row.remaining.asCompactCurrency(currencyCode))"
+                return String(localized: "差 \(row.remaining.asCompactCurrency(currencyCode))")
             }
         }
 

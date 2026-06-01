@@ -115,12 +115,9 @@ struct PaywallView: View {
     private var comparisonRows: [ComparisonRow] {
         [
             .init(icon: "stack", label: "專案數量", free: .text("1 個"), pro: .text("無限")),
-            .init(icon: "receipt", label: "收支記錄", free: .text("50 筆"), pro: .text("無限")),
             .init(icon: "users-three", label: "共用項目", free: .dash, pro: .check),
             .init(icon: "timer", label: "時間成本追蹤", free: .dash, pro: .check),
             .init(icon: "chart-line-up", label: "跨專案洞察", free: .dash, pro: .check),
-            .init(icon: "share-fat", label: "進階分享版型", free: .dash, pro: .check),
-            .init(icon: "file-arrow-down", label: "CSV 匯出", free: .dash, pro: .check),
         ]
     }
 

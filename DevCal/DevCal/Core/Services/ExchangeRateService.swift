@@ -181,7 +181,7 @@ final class ExchangeRateService {
 // MARK: - Environment plumbing
 
 private struct DisplayCurrencyKey: EnvironmentKey {
-    static let defaultValue: String = "TWD"
+    static let defaultValue: String = "USD"
 }
 
 extension EnvironmentValues {

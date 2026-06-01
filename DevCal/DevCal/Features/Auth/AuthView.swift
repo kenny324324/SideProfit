@@ -73,26 +73,21 @@ struct AuthView: View {
     }
 
     private var legalAttributed: AttributedString {
-        let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
-        let privacyURL = URL(string: "https://ripe-cereal-4f9.notion.site/Privacy-Policy-36c341fcbfde806e850dd81ac8b72b63")!
+        let termsURL = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+        let privacyURL = "https://ripe-cereal-4f9.notion.site/Privacy-Policy-36c341fcbfde806e850dd81ac8b72b63"
 
-        var result = AttributedString("登入即表示您同意我們的\n")
+        // Single localized sentence with inline markdown links so per-language
+        // word order (e.g. JA/KO verb-final) reads naturally.
+        let markdown = String(localized: "登入即表示您同意我們的 [服務條款](\(termsURL)) 和 [隱私權政策](\(privacyURL))")
+        guard var result = try? AttributedString(markdown: markdown) else {
+            return AttributedString(markdown)
+        }
 
-        var terms = AttributedString("服務條款")
-        terms.link = termsURL
-        terms.foregroundColor = Theme.brand
-        terms.underlineStyle = .single
-
-        let conjunction = AttributedString(" 和 ")
-
-        var privacy = AttributedString("隱私權政策")
-        privacy.link = privacyURL
-        privacy.foregroundColor = Theme.brand
-        privacy.underlineStyle = .single
-
-        result.append(terms)
-        result.append(conjunction)
-        result.append(privacy)
+        let linkRanges = result.runs.compactMap { $0.link == nil ? nil : $0.range }
+        for range in linkRanges {
+            result[range].foregroundColor = Theme.brand
+            result[range].underlineStyle = .single
+        }
         return result
     }
 

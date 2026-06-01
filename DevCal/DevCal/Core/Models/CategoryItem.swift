@@ -42,7 +42,7 @@ final class CategoryItem {
     /// ISO 4217 currency the user picked when creating this item. The scheduler
     /// stamps generated Transactions with this same code so subscriptions stay
     /// in their original currency regardless of later display-currency changes.
-    var originalCurrencyCode: String = "TWD"
+    var originalCurrencyCode: String = "USD"
     var billingTypeRaw: String = BillingType.oneTime.rawValue
     /// Lookup key for `BrandIconRegistry` (e.g. "openai"). nil → fall back to
     /// `fallbackIconName` (a Phosphor symbol picked at create time) or the
@@ -76,7 +76,7 @@ final class CategoryItem {
         name: String = "",
         category: TransactionCategory = .otherExpense,
         totalAmount: Double = 0,
-        originalCurrencyCode: String = "TWD",
+        originalCurrencyCode: String = "USD",
         billingType: BillingType = .oneTime,
         brandIconKey: String? = nil,
         fallbackIconName: String? = nil,

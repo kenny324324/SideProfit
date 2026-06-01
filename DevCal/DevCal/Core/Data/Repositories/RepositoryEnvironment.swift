@@ -41,9 +41,9 @@ private struct TransactionUseCaseKey: EnvironmentKey {
 
 private struct SyncServiceKey: EnvironmentKey {
     /// Concrete `FirestoreSyncService` so SwiftUI can observe its `@Observable`
-    /// properties (status / lastSyncedAt) from CloudSyncSettingsView. Other
-    /// consumers (e.g. SubscriptionScheduler) only need the `SyncServicing`
-    /// protocol surface, which the concrete class satisfies via upcast.
+    /// properties (status / lastSyncedAt). Other consumers (e.g.
+    /// SubscriptionScheduler) only need the `SyncServicing` protocol surface,
+    /// which the concrete class satisfies via upcast.
     static let defaultValue: FirestoreSyncService? = nil
 }
 

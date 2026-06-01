@@ -9,15 +9,18 @@
 //
 
 import SwiftUI
+import SwiftData
 import UIKit
 import UserNotifications
 import PhosphorSymbols
 
 struct NotificationSettingsView: View {
-    @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = false
-    @AppStorage("notif.breakeven") private var notifBreakeven: Bool = true
-    @AppStorage("notif.subscription") private var notifSubscription: Bool = true
-    @AppStorage("notif.dailySummary") private var notifDailySummary: Bool = false
+    @AppStorage(LocalNotificationScheduler.Toggle.master) private var notificationsEnabled: Bool = true
+    @AppStorage(LocalNotificationScheduler.Toggle.breakeven) private var notifBreakeven: Bool = true
+    @AppStorage(LocalNotificationScheduler.Toggle.subscription) private var notifSubscription: Bool = true
+    @AppStorage(LocalNotificationScheduler.Toggle.dailyReminder) private var notifDailyReminder: Bool = true
+
+    @Environment(\.modelContext) private var modelContext
 
     @State private var systemAuthorized: Bool = true
     @State private var showPermissionAlert: Bool = false
@@ -46,9 +49,9 @@ struct NotificationSettingsView: View {
                     hairline
                     categoryRow(
                         icon: "chart-line",
-                        label: "每日總結",
-                        sublabel: "每天傍晚 18:00 通知今日進度",
-                        isOn: $notifDailySummary
+                        label: "每日記錄提醒",
+                        sublabel: "每天晚上 21:00 提醒你記下今天的支出與收入",
+                        isOn: $notifDailyReminder
                     )
                 }
 
@@ -62,7 +65,24 @@ struct NotificationSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await refreshSystemAuthorization() }
         .onChange(of: notificationsEnabled) { _, newValue in
-            if newValue { Task { await requestAuthorizationIfNeeded() } }
+            if newValue {
+                Task {
+                    await requestAuthorizationIfNeeded()
+                    await rescheduleAll()
+                }
+            } else {
+                LocalNotificationScheduler.cancelAll()
+            }
+        }
+        .onChange(of: notifBreakeven) { _, _ in
+            // Break-even is fired instantly on stamp — nothing to (de)schedule
+            // up-front. The post call already gates on this toggle.
+        }
+        .onChange(of: notifSubscription) { _, _ in
+            Task { await rescheduleSubscriptionAlerts() }
+        }
+        .onChange(of: notifDailyReminder) { _, _ in
+            Task { await LocalNotificationScheduler.rescheduleDailyReminder() }
         }
         .systemAlert(
             "請在系統設定中開啟通知",
@@ -215,6 +235,18 @@ struct NotificationSettingsView: View {
         default:
             systemAuthorized = true
         }
+    }
+
+    @MainActor
+    private func rescheduleAll() async {
+        let items = (try? modelContext.fetch(FetchDescriptor<CategoryItem>())) ?? []
+        await LocalNotificationScheduler.rescheduleAll(items: items)
+    }
+
+    @MainActor
+    private func rescheduleSubscriptionAlerts() async {
+        let items = (try? modelContext.fetch(FetchDescriptor<CategoryItem>())) ?? []
+        await LocalNotificationScheduler.rescheduleSubscriptionAlerts(items: items)
     }
 }
 

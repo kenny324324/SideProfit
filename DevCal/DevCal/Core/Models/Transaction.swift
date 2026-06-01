@@ -32,7 +32,7 @@ final class Transaction {
     /// 顯示時才透過 ExchangeRateService 轉成顯示幣別。
     var originalAmount: Double = 0
     /// ISO 4217 幣別 (e.g. "USD")。
-    var originalCurrencyCode: String = "TWD"
+    var originalCurrencyCode: String = "USD"
 
     // MARK: - Other
     var note: String = ""
@@ -62,7 +62,7 @@ final class Transaction {
         iconFallbackName: String? = nil,
         iconColorHex: String? = nil,
         originalAmount: Double = 0,
-        originalCurrencyCode: String = "TWD",
+        originalCurrencyCode: String = "USD",
         note: String = "",
         date: Date = Date(),
         project: Project? = nil,

@@ -59,7 +59,7 @@ final class AuthService {
         var errorDescription: String? {
             switch self {
             case .appleCredentialMissing:
-                return "Apple 沒有回傳有效的登入憑證，請再試一次。"
+                return String(localized: "Apple 沒有回傳有效的登入憑證，請再試一次。")
             case .appleAuthorizationFailed(let underlying):
                 return underlying.localizedDescription
             }

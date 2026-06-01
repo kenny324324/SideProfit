@@ -17,7 +17,7 @@ struct AddProjectView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.projectRepository) private var projectRepository
     @Environment(AppReviewPrompter.self) private var appReviewPrompter
-    @AppStorage("defaultCurrency") private var defaultCurrency: String = "TWD"
+    @AppStorage("defaultCurrency") private var defaultCurrency: String = "USD"
 
     var editing: Project?
 
@@ -39,7 +39,7 @@ struct AddProjectView: View {
     // break-even). When skipped, goalAmount/goalDeadline save as nil.
     @State private var breakEvenOnly: Bool = false
     @State private var goalAmount: Double = 0
-    @State private var goalCurrencyCode: String = "TWD"
+    @State private var goalCurrencyCode: String = "USD"
     @State private var hasGoalDeadline: Bool = false
     @State private var goalDeadline: Date = Date()
 
